@@ -98,7 +98,7 @@ void RaycastOcclusionCull::RaycastHZBuffer::update_camera_rays(const Transform3D
 	td.pixel_u_interp = right_corner_world - td.pixel_corner;
 	td.pixel_v_interp = top_corner_world - td.pixel_corner;
 
-	debug_tex_range = td.z_far;
+	debug_tex_range = 50.0f;
 
 	WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(this, &RaycastHZBuffer::_camera_rays_threaded, &td, td.thread_count, -1, true, SNAME("RaycastOcclusionCullUpdateCamera"));
 	WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
@@ -173,7 +173,7 @@ void RaycastOcclusionCull::RaycastHZBuffer::sort_rays(const Vector3 &p_camera_di
 					}
 					int k = tile_i * TILE_SIZE + tile_j;
 					int tile_index = i * tile_grid_size.x + j;
-					mips[0][y * buffer_size.x + x] = camera_rays[tile_index].ray.tfar[k];
+					max_mips[0][y * buffer_size.x + x] = camera_rays[tile_index].ray.tfar[k];
 				}
 			}
 		}

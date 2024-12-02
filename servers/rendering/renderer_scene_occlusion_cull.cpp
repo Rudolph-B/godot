@@ -43,6 +43,13 @@ const Vector3 RendererSceneOcclusionCull::HZBuffer::corners[8] = {
 	Vector3(1, 1, 1)
 };
 
+const Vector2 RendererSceneOcclusionCull::HZBuffer::children[9] = {
+	Vector2(0, 0),
+	Vector2(0, 1),
+	Vector2(1, 0),
+	Vector2(1, 1)
+};
+
 bool RendererSceneOcclusionCull::HZBuffer::occlusion_jitter_enabled = false;
 
 bool RendererSceneOcclusionCull::HZBuffer::is_empty() const {
@@ -56,7 +63,8 @@ void RendererSceneOcclusionCull::HZBuffer::clear() {
 
 	data.clear();
 	sizes.clear();
-	mips.clear();
+	min_mips.clear();
+	max_mips.clear();
 
 	debug_data.clear();
 	if (debug_image.is_valid()) {
@@ -80,15 +88,15 @@ void RendererSceneOcclusionCull::HZBuffer::resize(const Size2i &p_size) {
 	}
 
 	int mip_count = 0;
-	int data_size = 0;
 	int w = p_size.x;
 	int h = p_size.y;
+	int data_size = - h * w;
 
 	while (true) {
-		data_size += h * w;
+		data_size += 2 * h * w;
 
-		w = MAX(1, w >> 1);
-		h = MAX(1, h >> 1);
+		w = MAX(1, (w + 1) >> 1);
+		h = MAX(1, (h + 1) >> 1);
 
 		mip_count++;
 
@@ -100,20 +108,26 @@ void RendererSceneOcclusionCull::HZBuffer::resize(const Size2i &p_size) {
 	}
 
 	data.resize(data_size);
-	mips.resize(mip_count);
+	max_mips.resize(mip_count);
+	min_mips.resize(mip_count);
 	sizes.resize(mip_count);
 
 	w = p_size.x;
 	h = p_size.y;
 	float *ptr = data.ptr();
-
 	for (int i = 0; i < mip_count; i++) {
 		sizes[i] = Size2i(w, h);
-		mips[i] = ptr;
+		max_mips[i] = ptr;
 
 		ptr = &ptr[w * h];
-		w = MAX(1, w >> 1);
-		h = MAX(1, h >> 1);
+		w = MAX(1, (w + 1) >> 1);
+		h = MAX(1, (h + 1) >> 1);
+	}
+
+	min_mips[0] = max_mips[0];
+	for (int i = 1; i < mip_count; i++) {
+		min_mips[i] = ptr;
+		ptr = &ptr[sizes[i].x * sizes[i].y];
 	}
 
 	for (int i = 0; i < data_size; i++) {
@@ -135,7 +149,7 @@ void RendererSceneOcclusionCull::HZBuffer::update_mips() {
 		return;
 	}
 
-	for (uint32_t mip = 1; mip < mips.size(); mip++) {
+	for (uint32_t mip = 1; mip < sizes.size(); mip++) {
 		for (int y = 0; y < sizes[mip].y; y++) {
 			for (int x = 0; x < sizes[mip].x; x++) {
 				int prev_x = x * 2;
@@ -144,32 +158,26 @@ void RendererSceneOcclusionCull::HZBuffer::update_mips() {
 				int prev_w = sizes[mip - 1].width;
 				int prev_h = sizes[mip - 1].height;
 
-				bool odd_w = (prev_w % 2) != 0;
-				bool odd_h = (prev_h % 2) != 0;
+#define CHECK_MAX_OFFSET(xx, yy) max_depth = MAX(max_depth, max_mips[mip - 1][MIN(prev_h - 1, prev_y + (yy)) * prev_w + MIN(prev_w - 1, prev_x + (xx))])
 
-#define CHECK_OFFSET(xx, yy) max_depth = MAX(max_depth, mips[mip - 1][MIN(prev_h - 1, prev_y + (yy)) * prev_w + MIN(prev_w - 1, prev_x + (xx))])
+				float max_depth = max_mips[mip - 1][prev_y * sizes[mip - 1].x + prev_x];
+				CHECK_MAX_OFFSET(0, 1);
+				CHECK_MAX_OFFSET(1, 0);
+				CHECK_MAX_OFFSET(1, 1);
 
-				float max_depth = mips[mip - 1][prev_y * sizes[mip - 1].x + prev_x];
-				CHECK_OFFSET(0, 1);
-				CHECK_OFFSET(1, 0);
-				CHECK_OFFSET(1, 1);
+				max_mips[mip][y * sizes[mip].x + x] = max_depth;
+#undef CHECK_MAX_OFFSET
 
-				if (odd_w) {
-					CHECK_OFFSET(2, 0);
-					CHECK_OFFSET(2, 1);
-				}
+#define CHECK_MIN_OFFSET(xx, yy) min_depth = MIN(min_depth, min_mips[mip - 1][MIN(prev_h - 1, prev_y + (yy)) * prev_w + MIN(prev_w - 1, prev_x + (xx))])
 
-				if (odd_h) {
-					CHECK_OFFSET(0, 2);
-					CHECK_OFFSET(1, 2);
-				}
+				float min_depth = min_mips[mip - 1][prev_y * sizes[mip - 1].x + prev_x];
+				CHECK_MIN_OFFSET(0, 1);
+				CHECK_MIN_OFFSET(1, 0);
+				CHECK_MIN_OFFSET(1, 1);
 
-				if (odd_w && odd_h) {
-					CHECK_OFFSET(2, 2);
-				}
+				min_mips[mip][y * sizes[mip].x + x] = min_depth;
+#undef CHECK_MAX_OFFSET
 
-				mips[mip][y * sizes[mip].x + x] = max_depth;
-#undef CHECK_OFFSET
 			}
 		}
 	}
@@ -186,7 +194,7 @@ RID RendererSceneOcclusionCull::HZBuffer::get_debug_texture() {
 
 	unsigned char *ptrw = debug_data.ptrw();
 	for (int i = 0; i < debug_data.size(); i++) {
-		ptrw[i] = MIN(mips[0][i] / debug_tex_range, 1.0) * 255;
+		ptrw[i] = MIN(max_mips[0][i] / debug_tex_range, 1.0) * 255;
 	}
 
 	debug_image->set_data(sizes[0].x, sizes[0].y, false, Image::FORMAT_L8, debug_data);

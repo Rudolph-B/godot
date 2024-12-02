@@ -35,6 +35,8 @@
 #include "core/templates/local_vector.h"
 #include "servers/rendering_server.h"
 
+#include <unistd.h>
+
 class RendererSceneOcclusionCull {
 protected:
 	static RendererSceneOcclusionCull *singleton;
@@ -43,10 +45,12 @@ public:
 	class HZBuffer {
 	protected:
 		static const Vector3 corners[8];
+		static const Vector2 children[9];
 
 		LocalVector<float> data;
 		LocalVector<Size2i> sizes;
-		LocalVector<float *> mips;
+		LocalVector<float *> min_mips;
+		LocalVector<float *> max_mips;
 
 		RID debug_texture;
 		Ref<Image> debug_image;
@@ -105,53 +109,73 @@ public:
 			rect_max = rect_max.minf(1);
 			rect_min = rect_min.maxf(0);
 
-			int mip_count = mips.size();
+			int w_min = CLAMP(floor(rect_min.x * sizes[0].x), 0 , sizes[0].x - 1);
+			int w_max = CLAMP(ceil(rect_max.x * sizes[0].x), 0 , sizes[0].x - 1);
+			int h_min = CLAMP(floor(rect_min.y * sizes[0].y), 0 , sizes[0].y - 1);
+			int h_max = CLAMP(ceil(rect_max.y * sizes[0].y), 0 , sizes[0].y - 1);
+			int mip_count = max_mips.size();
 
-			Vector2 screen_diagonal = (rect_max - rect_min) * sizes[0];
-			float size = MAX(screen_diagonal.x, screen_diagonal.y);
-			float l = Math::ceil(Math::log2(size));
-			int lod = CLAMP(l, 0, mip_count - 1);
+			int lod = mip_count - 1;
+			Size2i node = {0,0};
+			int node_stack[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-			const int max_samples = 512;
-			int sample_count = 0;
-			bool visible = true;
-
-			for (; lod >= 0; lod--) {
+			int k = 0;
+			while (k < 50) {
+				k++;
 				int w = sizes[lod].x;
-				int h = sizes[lod].y;
+				// int h = sizes[lod].y;
 
-				int minx = CLAMP(rect_min.x * w - 1, 0, w - 1);
-				int maxx = CLAMP(rect_max.x * w + 1, 0, w - 1);
+				int minx = w_min >> lod;
+				int maxx = w_max >> lod;
+				int miny = h_min >> lod;
+				int maxy = h_max >> lod;
 
-				int miny = CLAMP(rect_min.y * h - 1, 0, h - 1);
-				int maxy = CLAMP(rect_max.y * h + 1, 0, h - 1);
+				for (int i = node_stack[lod]; i < 5; i++) {
+					if (i >= 4) {
+						// Cycled through all nodes on the level, come up for air
+						node_stack[lod] = 0;
+						node.x = node.x / 2;
+						node.y = node.y / 2;
+						lod++;
 
-				sample_count += (maxx - minx + 1) * (maxy - miny + 1);
-
-				if (sample_count > max_samples) {
-					return false;
-				}
-
-				visible = false;
-				for (int y = miny; y <= maxy; y++) {
-					for (int x = minx; x <= maxx; x++) {
-						float depth = mips[lod][y * w + x];
-						if (depth > min_depth) {
-							visible = true;
-							break;
+						// No further nodes to explore
+						if (lod >= mip_count) {
+							return true;
 						}
-					}
-					if (visible) {
 						break;
 					}
-				}
 
-				if (!visible) {
-					return true;
+					const Vector2 &child = RendererSceneOcclusionCull::HZBuffer::children[i];
+					int x = node.x + child.x;
+					int y = node.y + child.y;
+
+					// Check if node is within the bounding box for the object
+					if (x < minx || x > maxx || y < miny || y > maxy) {
+						continue;
+					}
+
+					if (min_mips[lod][y * w + x] > min_depth) {
+						return false;
+					}
+
+					if (max_mips[lod][y * w + x] > min_depth) {
+						if (lod != 0) {
+							// Node might be valid dive deeper
+							i++;
+							node_stack[lod] = i;
+							node.x = x * 2;
+							node.y = y * 2;
+							lod--;
+							break;
+						}
+						// Already at max depth
+					}
+
+					// Specific node can be ignored
 				}
 			}
-
-			return !visible;
+			print_line("Exceeded count");
+			return false;
 		}
 
 	public:
