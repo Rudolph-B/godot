@@ -113,69 +113,89 @@ public:
 			int w_max = CLAMP(ceil(rect_max.x * sizes[0].x), 0 , sizes[0].x - 1);
 			int h_min = CLAMP(floor(rect_min.y * sizes[0].y), 0 , sizes[0].y - 1);
 			int h_max = CLAMP(ceil(rect_max.y * sizes[0].y), 0 , sizes[0].y - 1);
-			int mip_count = max_mips.size();
 
-			int lod = mip_count - 1;
-			Size2i node = {0,0};
+			int w_min_start = w_min;
+			int w_max_start = w_max;
+			int h_min_start = h_min;
+			int h_max_start = h_max;
+
+			int lod_start = 0;
+			while ((w_max_start - w_min_start + 1) * (h_max_start - h_min_start + 1) > 4) {
+				w_min_start = w_min_start >> 1;
+                w_max_start = w_max_start >> 1;
+                h_min_start = h_min_start >> 1;
+                h_max_start = h_max_start >> 1;
+				lod_start++;
+			}
 			int node_stack[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-			int k = 0;
-			while (k < 50) {
-				k++;
-				int w = sizes[lod].x;
-				// int h = sizes[lod].y;
+			for (int xi = w_min_start; xi <= w_max_start; xi++) {
+				for (int yi = h_min_start; yi <= h_max_start; yi++) {
+					int lod = lod_start;
+					Size2i node = {xi,yi};
+					node_stack[lod] = 0;
 
-				int minx = w_min >> lod;
-				int maxx = w_max >> lod;
-				int miny = h_min >> lod;
-				int maxy = h_max >> lod;
+					bool node_visible = true;
+					while (node_visible) {
+						int w = sizes[lod].x;
+						// int h = sizes[lod].y;
 
-				for (int i = node_stack[lod]; i < 5; i++) {
-					if (i >= 4) {
-						// Cycled through all nodes on the level, come up for air
-						node_stack[lod] = 0;
-						node.x = node.x / 2;
-						node.y = node.y / 2;
-						lod++;
+						int minx = w_min >> lod;
+						int maxx = w_max >> lod;
+						int miny = h_min >> lod;
+						int maxy = h_max >> lod;
 
-						// No further nodes to explore
-						if (lod >= mip_count) {
-							return true;
+						for (int i = node_stack[lod]; i < 5; i++) {
+							if (i >= 4) {
+								// Cycled through all nodes on the level, come up for air
+								node_stack[lod] = 0;
+								node.x = node.x / 2;
+								node.y = node.y / 2;
+								lod++;
+
+								// No further nodes to explore
+								if (lod >= lod_start) {
+									node_visible = false;
+									break;
+								}
+								break;
+							}
+
+							const Vector2 &child = RendererSceneOcclusionCull::HZBuffer::children[i];
+							int x = node.x + child.x;
+							int y = node.y + child.y;
+
+							// Check if node is within the bounding box for the object
+							if (x < minx || x > maxx || y < miny || y > maxy) {
+								continue;
+							}
+
+							if (min_mips[lod][y * w + x] > min_depth) {
+								return false;
+							}
+
+							if (max_mips[lod][y * w + x] > min_depth) {
+								if (lod != 0) {
+									// Node might be valid dive deeper
+									i++;
+									node_stack[lod] = i;
+									node.x = x * 2;
+									node.y = y * 2;
+									lod--;
+									node_stack[lod] = 0;
+									break;
+								}
+								// Already at max depth
+							}
+
+							// Specific node can be ignored
 						}
-						break;
 					}
-
-					const Vector2 &child = RendererSceneOcclusionCull::HZBuffer::children[i];
-					int x = node.x + child.x;
-					int y = node.y + child.y;
-
-					// Check if node is within the bounding box for the object
-					if (x < minx || x > maxx || y < miny || y > maxy) {
-						continue;
-					}
-
-					if (min_mips[lod][y * w + x] > min_depth) {
-						return false;
-					}
-
-					if (max_mips[lod][y * w + x] > min_depth) {
-						if (lod != 0) {
-							// Node might be valid dive deeper
-							i++;
-							node_stack[lod] = i;
-							node.x = x * 2;
-							node.y = y * 2;
-							lod--;
-							break;
-						}
-						// Already at max depth
-					}
-
-					// Specific node can be ignored
 				}
 			}
-			print_line("Exceeded count");
-			return false;
+
+			return true;
+
 		}
 
 	public:
