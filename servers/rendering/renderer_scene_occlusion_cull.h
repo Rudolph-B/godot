@@ -127,7 +127,8 @@ public:
                 h_max_start = h_max_start >> 1;
 				lod_start++;
 			}
-			int node_stack[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+			const int max_tree_depth = 10;
+			int node_stack[max_tree_depth];
 
 			for (int xi = w_min_start; xi <= w_max_start; xi++) {
 				for (int yi = h_min_start; yi <= h_max_start; yi++) {
