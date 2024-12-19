@@ -45,7 +45,7 @@ public:
 	class HZBuffer {
 	protected:
 		static const Vector3 corners[8];
-		static const Vector2 children[9];
+		static const Vector2i children[4];
 
 		LocalVector<float> data;
 		LocalVector<Size2i> sizes;
@@ -109,94 +109,106 @@ public:
 			rect_max = rect_max.minf(1);
 			rect_min = rect_min.maxf(0);
 
+			// Calculate rect bounds on mip[0]
 			int w_min = CLAMP(floor(rect_min.x * sizes[0].x), 0 , sizes[0].x - 1);
 			int w_max = CLAMP(ceil(rect_max.x * sizes[0].x), 0 , sizes[0].x - 1);
 			int h_min = CLAMP(floor(rect_min.y * sizes[0].y), 0 , sizes[0].y - 1);
 			int h_max = CLAMP(ceil(rect_max.y * sizes[0].y), 0 , sizes[0].y - 1);
 
-			int w_min_start = w_min;
-			int w_max_start = w_max;
-			int h_min_start = h_min;
-			int h_max_start = h_max;
+			int minx = w_min;
+			int maxx = w_max;
+			int miny = h_min;
+			int maxy = h_max;
 
-			int lod_start = 0;
-			while ((w_max_start - w_min_start + 1) * (h_max_start - h_min_start + 1) > 4) {
-				w_min_start = w_min_start >> 1;
-                w_max_start = w_max_start >> 1;
-                h_min_start = h_min_start >> 1;
-                h_max_start = h_max_start >> 1;
-				lod_start++;
+			// Calculate starting lod
+			int lod = 0;
+			while ((maxx - minx + 1) * (maxy - miny + 1) > 4) {
+				minx = minx >> 1;
+				maxx = maxx >> 1;
+				miny = miny >> 1;
+				maxy = maxy >> 1;
+				lod++;
 			}
-			const int max_tree_depth = 10;
-			int node_stack[max_tree_depth];
 
-			for (int xi = w_min_start; xi <= w_max_start; xi++) {
-				for (int yi = h_min_start; yi <= h_max_start; yi++) {
-					int lod = lod_start;
-					Size2i node = {xi,yi};
-					node_stack[lod] = 0;
+			// Setup breadth first search memory bounds
+			const int max_nodes = 512;
+			Vector2i nodes[max_nodes];
 
-					bool node_visible = true;
-					while (node_visible) {
-						int w = sizes[lod].x;
-						// int h = sizes[lod].y;
-
-						int minx = w_min >> lod;
-						int maxx = w_max >> lod;
-						int miny = h_min >> lod;
-						int maxy = h_max >> lod;
-
-						for (int i = node_stack[lod]; i < 5; i++) {
-							if (i >= 4) {
-								// Cycled through all nodes on the level, come up for air
-								node_stack[lod] = 0;
-								node.x = node.x / 2;
-								node.y = node.y / 2;
-								lod++;
-
-								// No further nodes to explore
-								if (lod >= lod_start) {
-									node_visible = false;
-									break;
-								}
-								break;
-							}
-
-							const Vector2 &child = RendererSceneOcclusionCull::HZBuffer::children[i];
-							int x = node.x + child.x;
-							int y = node.y + child.y;
-
-							// Check if node is within the bounding box for the object
-							if (x < minx || x > maxx || y < miny || y > maxy) {
-								continue;
-							}
-
-							if (min_mips[lod][y * w + x] > min_depth) {
-								return false;
-							}
-
-							if (max_mips[lod][y * w + x] > min_depth) {
-								if (lod != 0) {
-									// Node might be valid dive deeper
-									i++;
-									node_stack[lod] = i;
-									node.x = x * 2;
-									node.y = y * 2;
-									lod--;
-									node_stack[lod] = 0;
-									break;
-								}
-								// Already at max depth
-							}
-
-							// Specific node can be ignored
-						}
-					}
+			// Add initial nodes to explore
+			int total_nodes = 0;
+			for (int xi = minx; xi <= maxx; xi++) {
+				for (int yi = miny; yi <= maxy; yi++) {
+					nodes[total_nodes] = {xi,yi};
+					total_nodes++;
 				}
 			}
 
-			return true;
+			int clod_node = 0;
+			int nlod_node = total_nodes;
+			int w = sizes[lod].x;
 
+			// Loop while we haven't exceeded the max node count (So that we don't take to long)
+			while (true) {
+				// Check if LOD is full
+				if (clod_node >= nlod_node) {
+					if (clod_node >= total_nodes) {
+						// No more nodes to explore
+
+						// Getting here means either
+						// 1. All nodes got pruned due to them being before the object
+						// 2. We checked all nodes of lod:0 without the object being visible
+						// In both we can safely assume the object is occluded.
+						return true;
+					}
+
+					// Go a level deeper
+					nlod_node = total_nodes;
+					lod--;
+					minx = w_min >> lod;
+					maxx = w_max >> lod;
+					miny = h_min >> lod;
+					maxy = h_max >> lod;
+					w = sizes[lod].x;
+				}
+
+				int x = nodes[clod_node].x;
+				int y = nodes[clod_node].y;
+				clod_node++;
+
+				if (x < minx || x > maxx || y < miny || y > maxy) {
+					// Noce is not with the object bounds for this lod, skip...
+					continue;
+				}
+
+				// Check if min_depth is visible for the current node by comparing it with the min_mips
+				if (min_mips[lod][y * w + x] > min_depth) {
+					return false;
+				}
+
+				// Check if we expect the nodes children to contain a solution by comparing it with the max_mips
+				if (max_mips[lod][y * w + x] > min_depth) {
+
+					if (lod == 0) {
+						// At max depth no more nodes to add.
+						continue;
+					}
+
+					// Only add nodes if we can go a level deeper and there is space in max_nodes
+					if (total_nodes + 4 < max_nodes) {
+						x *= 2;
+						y *= 2;
+						nodes[total_nodes++] = {x + children[0].x, y + children[0].y};
+						nodes[total_nodes++] = {x + children[1].x, y + children[1].y};
+						nodes[total_nodes++] = {x + children[2].x, y + children[2].y};
+						nodes[total_nodes++] = {x + children[3].x, y + children[3].y};
+					}
+					else if (total_nodes + 4 >= max_nodes)
+					{
+						// Expended all of our search space exit.
+						return false;
+					}
+				}
+			}
 		}
 
 	public:
