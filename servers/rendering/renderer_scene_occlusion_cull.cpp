@@ -43,11 +43,11 @@ const Vector3 RendererSceneOcclusionCull::HZBuffer::corners[8] = {
 	Vector3(1, 1, 1)
 };
 
-const Vector2 RendererSceneOcclusionCull::HZBuffer::children[9] = {
-	Vector2(0, 0),
-	Vector2(0, 1),
-	Vector2(1, 0),
-	Vector2(1, 1)
+const Vector2i RendererSceneOcclusionCull::HZBuffer::children[9] = {
+	Vector2i(0, 0),
+	Vector2i(0, 1),
+	Vector2i(1, 0),
+	Vector2i(1, 1)
 };
 
 bool RendererSceneOcclusionCull::HZBuffer::occlusion_jitter_enabled = false;
@@ -90,8 +90,9 @@ void RendererSceneOcclusionCull::HZBuffer::resize(const Size2i &p_size) {
 	int mip_count = 0;
 	int w = p_size.x;
 	int h = p_size.y;
-	int data_size = - h * w;
 
+	// Calculate datasize and mip_count
+	int data_size = 0;
 	while (true) {
 		data_size += 2 * h * w;
 
@@ -107,11 +108,16 @@ void RendererSceneOcclusionCull::HZBuffer::resize(const Size2i &p_size) {
 		}
 	}
 
+	// Since max_mip[0] = min_mip[0] we can subtract the first instance of h * w from data_size
+	data_size -= p_size.x * p_size.y;
+
+	// Resize the datastructures
 	data.resize(data_size);
 	max_mips.resize(mip_count);
 	min_mips.resize(mip_count);
 	sizes.resize(mip_count);
 
+	// Populate the max_mips pointers
 	w = p_size.x;
 	h = p_size.y;
 	float *ptr = data.ptr();
@@ -124,6 +130,8 @@ void RendererSceneOcclusionCull::HZBuffer::resize(const Size2i &p_size) {
 		h = MAX(1, (h + 1) >> 1);
 	}
 
+	// Populate the min_mips pointers
+	// Start at one since max_mip[0] = min_mip[0]
 	min_mips[0] = max_mips[0];
 	for (int i = 1; i < mip_count; i++) {
 		min_mips[i] = ptr;
