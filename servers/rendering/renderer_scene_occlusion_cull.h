@@ -115,26 +115,22 @@ public:
 			int h_min = CLAMP(floor(rect_min.y * sizes[0].y), 0 , sizes[0].y - 1);
 			int h_max = CLAMP(ceil(rect_max.y * sizes[0].y), 0 , sizes[0].y - 1);
 
-			int minx = w_min;
-			int maxx = w_max;
-			int miny = h_min;
-			int maxy = h_max;
-
 			// Calculate starting lod
-			int lod = 0;
-			while ((maxx - minx + 1) * (maxy - miny + 1) > 4) {
-				minx = minx >> 1;
-				maxx = maxx >> 1;
-				miny = miny >> 1;
-				maxy = maxy >> 1;
-				lod++;
-			}
+			int mip_count = min_mips.size();
+			Vector2 screen_diagonal = (rect_max - rect_min) * sizes[0];
+			float size = MAX(screen_diagonal.x, screen_diagonal.y);
+			float l = Math::ceil(Math::log2(size));
+			int lod = CLAMP(l, 0, mip_count - 1);
 
 			// Setup breadth first search memory bounds
 			const int max_nodes = 512;
 			Vector2i nodes[max_nodes];
 
 			// Add initial nodes to explore
+			int minx = w_min >> lod;
+			int maxx = w_max >> lod;
+			int miny = h_min >> lod;
+			int maxy = h_max >> lod;
 			int total_nodes = 0;
 			for (int xi = minx; xi <= maxx; xi++) {
 				for (int yi = miny; yi <= maxy; yi++) {
@@ -143,20 +139,23 @@ public:
 				}
 			}
 
+			usleep(10 * 1000);
+			print_line("Total starting nodes:", total_nodes);
 			int clod_node = 0;
 			int nlod_node = total_nodes;
 			int w = sizes[lod].x;
 
 			// Loop while we haven't exceeded the max node count (So that we don't take to long)
 			while (true) {
-				// Check if LOD is full
+				// Check whether we have checked all nodes on this LOD
 				if (clod_node >= nlod_node) {
+
+					// Check if there are more nodes to explore
 					if (clod_node >= total_nodes) {
-						// No more nodes to explore
 
 						// Getting here means either
 						// 1. All nodes got pruned due to them being before the object
-						// 2. We checked all nodes of lod:0 without the object being visible
+						// 2. We checked all nodes of the starting lod without the object being visible
 						// In both we can safely assume the object is occluded.
 						return true;
 					}
@@ -176,7 +175,7 @@ public:
 				clod_node++;
 
 				if (x < minx || x > maxx || y < miny || y > maxy) {
-					// Noce is not with the object bounds for this lod, skip...
+					// Node is not within the object bounds for this lod, skip...
 					continue;
 				}
 
@@ -185,7 +184,7 @@ public:
 					return false;
 				}
 
-				// Check if we expect the nodes children to contain a solution by comparing it with the max_mips
+				// Check if we expect the nodes children to be behind the object by comparing it with the max_mips
 				if (max_mips[lod][y * w + x] > min_depth) {
 
 					if (lod == 0) {
@@ -193,7 +192,7 @@ public:
 						continue;
 					}
 
-					// Only add nodes if we can go a level deeper and there is space in max_nodes
+					// Only add nodes if we can go a level deeper and there is space in the nodes array
 					if (total_nodes + 4 < max_nodes) {
 						x *= 2;
 						y *= 2;

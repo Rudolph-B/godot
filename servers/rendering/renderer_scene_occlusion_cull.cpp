@@ -43,7 +43,7 @@ const Vector3 RendererSceneOcclusionCull::HZBuffer::corners[8] = {
 	Vector3(1, 1, 1)
 };
 
-const Vector2i RendererSceneOcclusionCull::HZBuffer::children[9] = {
+const Vector2i RendererSceneOcclusionCull::HZBuffer::children[4] = {
 	Vector2i(0, 0),
 	Vector2i(0, 1),
 	Vector2i(1, 0),
