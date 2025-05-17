@@ -1141,7 +1141,7 @@ public:
 		Transform3D cam_transform;
 		uint32_t visible_layers;
 		Instance *render_reflection_probe = nullptr;
-		const RendererSceneOcclusionCull::HZBuffer *occlusion_buffer;
+		RendererSceneOcclusionCull::HZBuffer *occlusion_buffer;
 		const Projection *camera_matrix;
 		uint64_t visibility_viewport_mask;
 	};
