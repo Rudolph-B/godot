@@ -58,6 +58,7 @@ void RendererSceneOcclusionCull::HZBuffer::clear() {
 	sizes.clear();
 	mips.clear();
 
+	debug_texture_data.clear();
 	debug_data.clear();
 	if (debug_image.is_valid()) {
 		debug_image.unref();
@@ -120,7 +121,8 @@ void RendererSceneOcclusionCull::HZBuffer::resize(const Size2i &p_size) {
 		data[i] = FLT_MAX;
 	}
 
-	debug_data.resize(sizes[0].x * sizes[0].y);
+	debug_texture_data.resize(sizes[0].x * sizes[0].y * 4 * 3);
+	debug_data.resize(sizes[0].x * sizes[0].y * 4);
 	if (debug_texture.is_valid()) {
 		RS::get_singleton()->free(debug_texture);
 		debug_texture = RID();
@@ -184,12 +186,42 @@ RID RendererSceneOcclusionCull::HZBuffer::get_debug_texture() {
 		debug_image.instantiate();
 	}
 
-	unsigned char *ptrw = debug_data.ptrw();
-	for (int i = 0; i < debug_data.size(); i++) {
-		ptrw[i] = MIN(Math::log(1.0 + mips[0][i]) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+	unsigned char *ptrw = debug_texture_data.ptrw();
+	for (int y = 0; y < sizes[0].y * 2; y++) {
+		for (int x = 0; x < sizes[0].x * 2; x++) {
+			int j = 3 * (y * sizes[0].x * 2 + x);
+			float occluder = mips[0][(y / 2) * sizes[0].x + x / 2];
+			float occludee = debug_data[y * sizes[0].x * 2 + x];
+			Vector3 temp = Vector3(occluder, occludee, occluder);
+
+			if (occludee == FLT_MAX) {
+				temp.x = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+				temp.y = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+				temp.z = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+			} else if (occluder <= occludee) {
+				temp.x = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+				temp.y = MIN(Math::log(1.0 + Math::abs(occluder - occludee)) / Math::log(1.0 + MAX(occluder, occludee)), 1.0) * 255;
+				temp.z = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+			} else {
+				temp.x = MIN(Math::log(1.0 + occludee) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+				temp.y = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+				temp.z = MIN(Math::log(1.0 + Math::abs(occluder - occludee)) / Math::log(1.0 + MAX(occluder, occludee)), 1.0) * 255;
+			}
+
+			if (occludee == 0.0) {
+				temp.x = 0;
+				temp.y = 0;
+				temp.z = 0;
+			}
+
+			ptrw[j] = temp.x;
+			ptrw[j + 1] = temp.y;
+			ptrw[j + 2] = temp.z;
+			debug_data[y * sizes[0].x * 2 + x] = FLT_MAX;
+		}
 	}
 
-	debug_image->set_data(sizes[0].x, sizes[0].y, false, Image::FORMAT_L8, debug_data);
+	debug_image->set_data(sizes[0].x * 2, sizes[0].y * 2, false, Image::FORMAT_RGB8, debug_texture_data);
 
 	if (debug_texture.is_null()) {
 		debug_texture = RS::get_singleton()->texture_2d_create(debug_image);

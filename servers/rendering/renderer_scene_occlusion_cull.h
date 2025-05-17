@@ -49,13 +49,14 @@ public:
 
 		RID debug_texture;
 		Ref<Image> debug_image;
-		PackedByteArray debug_data;
+		PackedByteArray debug_texture_data;
+		LocalVector<float> debug_data;
 		float debug_tex_range = 0.0f;
 
 		uint64_t occlusion_frame = 0;
 		Size2i occlusion_buffer_size;
 
-		_FORCE_INLINE_ bool _is_occluded(const real_t p_bounds[6], const Vector3 &p_cam_position, const Transform3D &p_cam_inv_transform, const Projection &p_cam_projection, real_t p_near) const {
+		_FORCE_INLINE_ bool _is_occluded(const real_t p_bounds[6], const Vector3 &p_cam_position, const Transform3D &p_cam_inv_transform, const Projection &p_cam_projection, real_t p_near) {
 			if (is_empty()) {
 				return false;
 			}
@@ -87,11 +88,11 @@ public:
 				min_depth = MIN(min_depth, -view.z);
 
 				float w = projected.d;
-				if (w < 1.0) {
-					rect_min = Vector2(0.0f, 0.0f);
-					rect_max = Vector2(1.0f, 1.0f);
-					break;
-				}
+				// if (w < 1.0) {
+				// 	rect_min = Vector2(0.0f, 0.0f);
+				// 	rect_max = Vector2(1.0f, 1.0f);
+				// 	break;
+				// }
 
 				Vector2 normalized = Vector2(projected.normal.x / w * 0.5f + 0.5f, projected.normal.y / w * 0.5f + 0.5f);
 				rect_min = rect_min.min(normalized);
@@ -125,7 +126,8 @@ public:
 				sample_count += (maxx - minx + 1) * (maxy - miny + 1);
 
 				if (sample_count > max_samples) {
-					return false;
+					visible = true;
+					break;
 				}
 
 				visible = false;
@@ -143,7 +145,30 @@ public:
 				}
 
 				if (!visible) {
-					return true;
+					break;
+				}
+			}
+
+			{
+				int w = sizes[0].x * 2;
+				int h = sizes[0].y * 2;
+
+				int minx = CLAMP(rect_min.x * w - 1, 0, w - 1);
+				int maxx = CLAMP(rect_max.x * w + 1, 0, w - 1);
+
+				int miny = CLAMP(rect_min.y * h - 1, 0, h - 1);
+				int maxy = CLAMP(rect_max.y * h + 1, 0, h - 1);
+
+				for (int y = miny; y <= maxy; y++) {
+					for (int x = minx; x <= maxx; x++) {
+						debug_data[y * w + x] = MIN(min_depth, debug_data[y * w + x]);
+
+						if (x == minx || x == maxx || y == miny || y == maxy) {
+							if (visible || (x + y) % 2 == 0) {
+								debug_data[y * w + x] = 0;
+							}
+						}
+					}
 				}
 			}
 
@@ -162,7 +187,7 @@ public:
 		// Thin wrapper around _is_occluded(),
 		// allowing occlusion timers to delay the disappearance
 		// of objects to prevent flickering when using jittering.
-		_FORCE_INLINE_ bool is_occluded(const real_t p_bounds[6], const Vector3 &p_cam_position, const Transform3D &p_cam_inv_transform, const Projection &p_cam_projection, real_t p_near, uint64_t &r_occlusion_timeout) const {
+		_FORCE_INLINE_ bool is_occluded(const real_t p_bounds[6], const Vector3 &p_cam_position, const Transform3D &p_cam_inv_transform, const Projection &p_cam_projection, real_t p_near, uint64_t &r_occlusion_timeout) {
 			bool occluded = _is_occluded(p_bounds, p_cam_position, p_cam_inv_transform, p_cam_projection, p_near);
 
 			// Special case, temporal jitter disabled,
