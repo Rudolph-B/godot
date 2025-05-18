@@ -32,17 +32,6 @@
 
 RendererSceneOcclusionCull *RendererSceneOcclusionCull::singleton = nullptr;
 
-const Vector3 RendererSceneOcclusionCull::HZBuffer::corners[8] = {
-	Vector3(0, 0, 0),
-	Vector3(0, 0, 1),
-	Vector3(0, 1, 0),
-	Vector3(0, 1, 1),
-	Vector3(1, 0, 0),
-	Vector3(1, 0, 1),
-	Vector3(1, 1, 0),
-	Vector3(1, 1, 1)
-};
-
 bool RendererSceneOcclusionCull::HZBuffer::occlusion_jitter_enabled = false;
 
 bool RendererSceneOcclusionCull::HZBuffer::is_empty() const {
@@ -195,17 +184,20 @@ RID RendererSceneOcclusionCull::HZBuffer::get_debug_texture() {
 			Vector3 temp = Vector3(occluder, occludee, occluder);
 
 			if (occludee == FLT_MAX) {
+				// Occludee is absent
 				temp.x = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
 				temp.y = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
 				temp.z = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
-			} else if (occluder <= occludee) {
-				temp.x = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
-				temp.y = MIN(Math::log(1.0 + Math::abs(occluder - occludee)) / Math::log(1.0 + MAX(occluder, occludee)), 1.0) * 255;
-				temp.z = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
+			} else if (occluder < occludee) {
+				// Occludee is behind occluder
+				temp.x = 0;
+				temp.y = MIN(1.0 - Math::abs(occluder - occludee) / MAX(occluder, occludee), 1.0) * 255;
+				temp.z = 0;
 			} else {
-				temp.x = MIN(Math::log(1.0 + occludee) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
-				temp.y = MIN(Math::log(1.0 + occluder) / Math::log(1.0 + debug_tex_range), 1.0) * 255;
-				temp.z = MIN(Math::log(1.0 + Math::abs(occluder - occludee)) / Math::log(1.0 + MAX(occluder, occludee)), 1.0) * 255;
+				// Occluder is behind occludee
+				temp.x = 0;
+				temp.y = 0;
+				temp.z = MIN(1.0 - Math::abs(occluder - occludee) / occluder, 1.0) * 255;
 			}
 
 			if (occludee == 0.0) {

@@ -41,8 +41,6 @@ protected:
 public:
 	class HZBuffer {
 	protected:
-		static const Vector3 corners[8];
-
 		LocalVector<float> data;
 		LocalVector<Size2i> sizes;
 		LocalVector<float *> mips;
@@ -72,31 +70,90 @@ public:
 				return false;
 			}
 
-			float min_depth = -closest_point_view.z;
+			float min_depth = FLT_MAX;
+			int mi = 0;
 
 			Vector2 rect_min = Vector2(FLT_MAX, FLT_MAX);
 			Vector2 rect_max = Vector2(FLT_MIN, FLT_MIN);
+			Vector2 cs_proj[8];
+			float cs_depth[8];
 
 			for (int j = 0; j < 8; j++) {
-				const Vector3 &c = RendererSceneOcclusionCull::HZBuffer::corners[j];
-				Vector3 nc = Vector3(1, 1, 1) - c;
-				Vector3 corner = Vector3(p_bounds[0] * c.x + p_bounds[3] * nc.x, p_bounds[1] * c.y + p_bounds[4] * nc.y, p_bounds[2] * c.z + p_bounds[5] * nc.z);
+				Vector3 corner = Vector3(
+						p_bounds[0] * (j >> 0 & 1) + p_bounds[3] * (~j >> 0 & 1),
+						p_bounds[1] * (j >> 1 & 1) + p_bounds[4] * (~j >> 1 & 1),
+						p_bounds[2] * (j >> 2 & 1) + p_bounds[5] * (~j >> 2 & 1));
 				Vector3 view = p_cam_inv_transform.xform(corner);
+				cs_depth[j] = -view.z;
 
-				Plane vp = Plane(view, 1.0);
-				Plane projected = p_cam_projection.xform4(vp);
-				min_depth = MIN(min_depth, -view.z);
+				if (-view.z < min_depth) {
+					min_depth = -view.z;
+					mi = j;
+				}
 
-				float w = projected.d;
-				// if (w < 1.0) {
-				// 	rect_min = Vector2(0.0f, 0.0f);
-				// 	rect_max = Vector2(1.0f, 1.0f);
-				// 	break;
-				// }
+				Vector3 projected = p_cam_projection.xform(view);
+				cs_proj[j] = Vector2(projected.x * 0.5f + 0.5f, projected.y * 0.5f + 0.5f);
 
-				Vector2 normalized = Vector2(projected.normal.x / w * 0.5f + 0.5f, projected.normal.y / w * 0.5f + 0.5f);
-				rect_min = rect_min.min(normalized);
-				rect_max = rect_max.max(normalized);
+				rect_min = rect_min.min(cs_proj[j]);
+				rect_max = rect_max.max(cs_proj[j]);
+			}
+
+			Vector3 vn[3];
+			Vector3 cn[3];
+			Vector3 pn[3];
+
+			for (int i = 0; i < 3; ++i) {
+				int j = mi ^ (1 << i);
+				vn[i] = Vector3(
+						cs_proj[j].x - cs_proj[mi].x,
+						cs_proj[j].y - cs_proj[mi].y,
+						cs_depth[j] - min_depth);
+			}
+
+			for (int i = 0; i < 3; ++i) {
+				cn[i] = vn[(i + 1) % 3].cross(vn[(i + 2) % 3]);
+			}
+
+			for (int i = 0; i < 3; ++i) {
+				pn[i] = Vector3(
+						-cn[i].x / cn[i].z,
+						-cn[i].y / cn[i].z,
+						min_depth + (cn[i].x / cn[i].z) * cs_proj[mi].x + (cn[i].y / cn[i].z) * cs_proj[mi].y);
+				if (Math::abs(cn[i].z) < 0.001) {
+					pn[i].x = 0;
+					pn[i].y = 0;
+					pn[i].z = 0;
+				}
+			}
+
+			Vector3 p1 = Vector3(
+					-cn[0].x / cn[0].z,
+					-cn[0].y / cn[0].z,
+					min_depth + (cn[0].x / cn[0].z) * cs_proj[mi].x + (cn[0].y / cn[0].z) * cs_proj[mi].y);
+			if (Math::abs(cn[0].z) < 0.001) {
+				p1.x = 0;
+				p1.y = 0;
+				p1.z = 0;
+			}
+
+			Vector3 p2 = Vector3(
+					-cn[1].x / cn[1].z,
+					-cn[1].y / cn[1].z,
+					min_depth + (cn[1].x / cn[1].z) * cs_proj[mi].x + (cn[1].y / cn[1].z) * cs_proj[mi].y);
+			if (Math::abs(cn[1].z) < 0.001) {
+				p2.x = 0;
+				p2.y = 0;
+				p2.z = 0;
+			}
+
+			Vector3 p3 = Vector3(
+					-cn[2].x / cn[2].z,
+					-cn[2].y / cn[2].z,
+					min_depth + (cn[2].x / cn[2].z) * cs_proj[mi].x + (cn[2].y / cn[2].z) * cs_proj[mi].y);
+			if (Math::abs(cn[2].z) < 0.001) {
+				p3.x = 0;
+				p3.y = 0;
+				p3.z = 0;
 			}
 
 			rect_max = rect_max.minf(1);
@@ -125,16 +182,21 @@ public:
 
 				sample_count += (maxx - minx + 1) * (maxy - miny + 1);
 
-				if (sample_count > max_samples) {
-					visible = true;
-					break;
-				}
+				// if (sample_count > max_samples) {
+				// 	visible = true;
+				// 	break;
+				// }
 
 				visible = false;
 				for (int y = miny; y <= maxy; y++) {
 					for (int x = minx; x <= maxx; x++) {
+						float depth_1 = MAX(min_depth, pn[0].z + (pn[0].x * x / w) + (pn[0].y * y / h));
+						float depth_2 = MAX(min_depth, pn[1].z + (pn[1].x * x / w) + (pn[1].y * y / h));
+						float depth_3 = MAX(min_depth, pn[2].z + (pn[2].x * x / w) + (pn[2].y * y / h));
+						float t_depth = MAX(depth_1, MAX(depth_2, depth_3));
+
 						float depth = mips[lod][y * w + x];
-						if (depth > min_depth) {
+						if (depth > t_depth) {
 							visible = true;
 							break;
 						}
@@ -161,7 +223,12 @@ public:
 
 				for (int y = miny; y <= maxy; y++) {
 					for (int x = minx; x <= maxx; x++) {
-						debug_data[y * w + x] = MIN(min_depth, debug_data[y * w + x]);
+						float depth_1 = MAX(min_depth, pn[0].z + (pn[0].x * x / w) + (pn[0].y * y / h));
+						float depth_2 = MAX(min_depth, pn[1].z + (pn[1].x * x / w) + (pn[1].y * y / h));
+						float depth_3 = MAX(min_depth, pn[2].z + (pn[2].x * x / w) + (pn[2].y * y / h));
+						float t_depth = MAX(depth_1, MAX(depth_2, depth_3));
+
+						debug_data[y * w + x] = t_depth;
 
 						if (x == minx || x == maxx || y == miny || y == maxy) {
 							if (visible || (x + y) % 2 == 0) {
@@ -170,6 +237,10 @@ public:
 						}
 					}
 				}
+
+				int x = CLAMP(cs_proj[mi].x * w - 1, 0, w - 1);
+				int y = CLAMP(cs_proj[mi].y * h - 1, 0, h - 1);
+				debug_data[y * w + x] = 0;
 			}
 
 			return !visible;
