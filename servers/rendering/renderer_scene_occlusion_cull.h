@@ -101,59 +101,37 @@ public:
 			Vector3 vn[3];
 			Vector3 cn[3];
 			Vector3 pn[3];
+			float adj = 1.0;
+			float off = 0.05;
+			if (!p_cam_projection.is_orthogonal()) {
+				adj *= 0.9;
+			}
 
 			for (int i = 0; i < 3; ++i) {
 				int j = mi ^ (1 << i);
 				vn[i] = Vector3(
 						cs_proj[j].x - cs_proj[mi].x,
 						cs_proj[j].y - cs_proj[mi].y,
-						cs_depth[j] - min_depth);
+						adj * (cs_depth[j] - min_depth));
 			}
 
+			int p = 0;
 			for (int i = 0; i < 3; ++i) {
 				cn[i] = vn[(i + 1) % 3].cross(vn[(i + 2) % 3]);
-			}
-
-			for (int i = 0; i < 3; ++i) {
-				pn[i] = Vector3(
-						-cn[i].x / cn[i].z,
-						-cn[i].y / cn[i].z,
-						min_depth + (cn[i].x / cn[i].z) * cs_proj[mi].x + (cn[i].y / cn[i].z) * cs_proj[mi].y);
-				if (Math::abs(cn[i].z) < 0.001) {
-					pn[i].x = 0;
-					pn[i].y = 0;
-					pn[i].z = 0;
+				if (Math::abs(cn[p].z) < Math::abs(cn[i].z)) {
+					p = i;
 				}
 			}
 
-			Vector3 p1 = Vector3(
-					-cn[0].x / cn[0].z,
-					-cn[0].y / cn[0].z,
-					min_depth + (cn[0].x / cn[0].z) * cs_proj[mi].x + (cn[0].y / cn[0].z) * cs_proj[mi].y);
-			if (Math::abs(cn[0].z) < 0.001) {
-				p1.x = 0;
-				p1.y = 0;
-				p1.z = 0;
-			}
-
-			Vector3 p2 = Vector3(
-					-cn[1].x / cn[1].z,
-					-cn[1].y / cn[1].z,
-					min_depth + (cn[1].x / cn[1].z) * cs_proj[mi].x + (cn[1].y / cn[1].z) * cs_proj[mi].y);
-			if (Math::abs(cn[1].z) < 0.001) {
-				p2.x = 0;
-				p2.y = 0;
-				p2.z = 0;
-			}
-
-			Vector3 p3 = Vector3(
-					-cn[2].x / cn[2].z,
-					-cn[2].y / cn[2].z,
-					min_depth + (cn[2].x / cn[2].z) * cs_proj[mi].x + (cn[2].y / cn[2].z) * cs_proj[mi].y);
-			if (Math::abs(cn[2].z) < 0.001) {
-				p3.x = 0;
-				p3.y = 0;
-				p3.z = 0;
+			for (int i = 0; i < 3; ++i) {
+				if (cn[p].z * cn[i].z <= 0.0001) {
+					pn[i] = Vector3(0.0, 0.0, 0.0);
+				} else {
+					pn[i] = Vector3(
+							-cn[i].x / cn[i].z,
+							-cn[i].y / cn[i].z,
+							min_depth - off + (cn[i].x / cn[i].z) * cs_proj[mi].x + (cn[i].y / cn[i].z) * cs_proj[mi].y);
+				}
 			}
 
 			rect_max = rect_max.minf(1);
@@ -166,8 +144,8 @@ public:
 			float l = Math::ceil(Math::log2(size));
 			int lod = CLAMP(l, 0, mip_count - 1);
 
-			const int max_samples = 512;
-			int sample_count = 0;
+			// const int max_samples = 512;
+			// int sample_count = 0;
 			bool visible = true;
 
 			for (; lod >= 0; lod--) {
@@ -180,7 +158,7 @@ public:
 				int miny = CLAMP(rect_min.y * h - 1, 0, h - 1);
 				int maxy = CLAMP(rect_max.y * h + 1, 0, h - 1);
 
-				sample_count += (maxx - minx + 1) * (maxy - miny + 1);
+				// sample_count += (maxx - minx + 1) * (maxy - miny + 1);
 
 				// if (sample_count > max_samples) {
 				// 	visible = true;
@@ -190,10 +168,9 @@ public:
 				visible = false;
 				for (int y = miny; y <= maxy; y++) {
 					for (int x = minx; x <= maxx; x++) {
-						float depth_1 = MAX(min_depth, pn[0].z + (pn[0].x * x / w) + (pn[0].y * y / h));
-						float depth_2 = MAX(min_depth, pn[1].z + (pn[1].x * x / w) + (pn[1].y * y / h));
-						float depth_3 = MAX(min_depth, pn[2].z + (pn[2].x * x / w) + (pn[2].y * y / h));
-						float t_depth = MAX(depth_1, MAX(depth_2, depth_3));
+						float t_depth = pn[0].z + (pn[0].x * x / w) + (pn[0].y * y / h);
+						t_depth = MAX(t_depth, pn[1].z + (pn[1].x * x / w) + (pn[1].y * y / h));
+						t_depth = MAX(t_depth, pn[2].z + (pn[2].x * x / w) + (pn[2].y * y / h));
 
 						float depth = mips[lod][y * w + x];
 						if (depth > t_depth) {
@@ -223,12 +200,11 @@ public:
 
 				for (int y = miny; y <= maxy; y++) {
 					for (int x = minx; x <= maxx; x++) {
-						float depth_1 = MAX(min_depth, pn[0].z + (pn[0].x * x / w) + (pn[0].y * y / h));
-						float depth_2 = MAX(min_depth, pn[1].z + (pn[1].x * x / w) + (pn[1].y * y / h));
-						float depth_3 = MAX(min_depth, pn[2].z + (pn[2].x * x / w) + (pn[2].y * y / h));
-						float t_depth = MAX(depth_1, MAX(depth_2, depth_3));
+						float t_depth = pn[0].z + (pn[0].x * x / w) + (pn[0].y * y / h);
+						t_depth = MAX(t_depth, pn[1].z + (pn[1].x * x / w) + (pn[1].y * y / h));
+						t_depth = MAX(t_depth, pn[2].z + (pn[2].x * x / w) + (pn[2].y * y / h));
 
-						debug_data[y * w + x] = t_depth;
+						debug_data[y * w + x] = MAX(min_depth, t_depth);
 
 						if (x == minx || x == maxx || y == miny || y == maxy) {
 							if (visible || (x + y) % 2 == 0) {

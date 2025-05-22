@@ -201,7 +201,7 @@ RID RendererSceneOcclusionCull::HZBuffer::get_debug_texture() {
 			}
 
 			if (occludee == 0.0) {
-				temp.x = 0;
+				temp.x = 255;
 				temp.y = 0;
 				temp.z = 0;
 			}
