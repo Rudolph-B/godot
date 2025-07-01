@@ -55,6 +55,23 @@ public:
 		uint64_t occlusion_frame = 0;
 		Size2i occlusion_buffer_size;
 
+		struct Vector3d {
+			double x;
+			double y;
+			double z;
+
+			_FORCE_INLINE_ float length() const {
+				double x2 = x * x;
+				double y2 = y * y;
+				double z2 = z * z;
+
+				return Math::sqrt(x2 + y2 + z2);
+			}
+
+			constexpr Vector3d(real_t p_x, real_t p_y, real_t p_z) :
+					x(p_x), y(p_y), z(p_z) {}
+		};
+
 		_FORCE_INLINE_ bool _is_occluded(const real_t p_bounds[6], const Vector3 &p_cam_position, const Transform3D &p_cam_inv_transform, const Projection &p_cam_projection, real_t p_near) const {
 			if (is_empty()) {
 				return false;
@@ -71,7 +88,8 @@ public:
 				return false;
 			}
 
-			float min_depth = -closest_point_view.z;
+			closest_point -= p_cam_position;
+			float min_depth = Vector3d(closest_point.x, closest_point.y, closest_point.z).length();
 
 			Vector2 rect_min = Vector2(FLT_MAX, FLT_MAX);
 			Vector2 rect_max = Vector2(FLT_MIN, FLT_MIN);
@@ -84,7 +102,9 @@ public:
 
 				Plane vp = Plane(view, 1.0);
 				Plane projected = p_cam_projection.xform4(vp);
-				min_depth = MIN(min_depth, -view.z);
+				if (p_cam_projection.is_orthogonal()) {
+					min_depth = MIN(min_depth, -view.z);
+				}
 
 				float w = projected.d;
 				if (w < 1.0) {
