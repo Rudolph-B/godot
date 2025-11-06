@@ -527,7 +527,7 @@ void RaycastOcclusionCull::buffer_set_size(RID p_buffer, const Vector2i &p_size)
 }
 
 Vector2 RaycastOcclusionCull::_get_jitter(const Rect2 &p_viewport_rect, const Size2i &p_buffer_size) {
-	if (!_jitter_enabled) {
+	if (!HZBuffer::occlusion_jitter_enabled) {
 		return Vector2();
 	}
 
@@ -643,6 +643,14 @@ void RaycastOcclusionCull::set_build_quality(RS::ViewportOcclusionCullingBuildQu
 	}
 }
 
+void RaycastOcclusionCull::set_use_occlusion_jitter(bool p_use_occlusion_jitter) {
+	if (HZBuffer::occlusion_jitter_enabled == p_use_occlusion_jitter) {
+		return;
+	}
+
+	HZBuffer::occlusion_jitter_enabled = p_use_occlusion_jitter;
+}
+
 void RaycastOcclusionCull::_init_embree() {
 #ifdef __SSE2__
 	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
@@ -656,7 +664,6 @@ void RaycastOcclusionCull::_init_embree() {
 RaycastOcclusionCull::RaycastOcclusionCull() {
 	raycast_singleton = this;
 	int default_quality = GLOBAL_GET("rendering/occlusion_culling/bvh_build_quality");
-	_jitter_enabled = GLOBAL_GET("rendering/occlusion_culling/jitter_projection");
 	build_quality = RS::ViewportOcclusionCullingBuildQuality(default_quality);
 }
 

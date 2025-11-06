@@ -234,6 +234,7 @@ public:
 	}
 
 	virtual void set_build_quality(RS::ViewportOcclusionCullingBuildQuality p_quality) {}
+	virtual void set_use_occlusion_jitter(bool p_use_occlusion_jitter) {}
 
 	RendererSceneOcclusionCull() {
 		singleton = this;

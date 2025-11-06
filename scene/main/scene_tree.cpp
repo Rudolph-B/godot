@@ -2100,6 +2100,9 @@ SceneTree::SceneTree() {
 	const bool use_occlusion_culling = GLOBAL_DEF("rendering/occlusion_culling/use_occlusion_culling", false);
 	root->set_use_occlusion_culling(use_occlusion_culling);
 
+	const bool use_occlusion_jitter = GLOBAL_DEF("rendering/occlusion_culling/jitter_projection", false);
+	root->set_use_occlusion_jitter(use_occlusion_jitter);
+
 	float mesh_lod_threshold = GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "rendering/mesh_lod/lod_change/threshold_pixels", PROPERTY_HINT_RANGE, "0,1024,0.1"), 1.0);
 	root->set_mesh_lod_threshold(mesh_lod_threshold);
 

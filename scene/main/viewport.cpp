@@ -3807,6 +3807,13 @@ void Viewport::set_use_occlusion_culling(bool p_use_occlusion_culling) {
 	notify_property_list_changed();
 }
 
+void Viewport::set_use_occlusion_jitter(bool p_use_occlusion_jitter) {
+	ERR_MAIN_THREAD_GUARD;
+	RS::get_singleton()->viewport_set_occlusion_culling_jitter_projection(p_use_occlusion_jitter);
+
+	notify_property_list_changed();
+}
+
 bool Viewport::is_using_occlusion_culling() const {
 	ERR_READ_THREAD_GUARD_V(false);
 	return use_occlusion_culling;

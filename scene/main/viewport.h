@@ -603,6 +603,8 @@ public:
 	float get_mesh_lod_threshold() const;
 
 	void set_use_occlusion_culling(bool p_us_occlusion_culling);
+	void set_use_occlusion_jitter(bool p_use_occlusion_jitter);
+
 	bool is_using_occlusion_culling() const;
 
 	Vector2 get_camera_coords(const Vector2 &p_viewport_coords) const;

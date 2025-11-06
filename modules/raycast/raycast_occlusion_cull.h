@@ -158,7 +158,6 @@ private:
 	HashMap<RID, Scenario> scenarios;
 	HashMap<RID, RaycastHZBuffer> buffers;
 	RS::ViewportOcclusionCullingBuildQuality build_quality;
-	bool _jitter_enabled = false;
 
 	void _init_embree();
 	Vector2 _get_jitter(const Rect2 &p_viewport_rect, const Size2i &p_buffer_size);
@@ -185,6 +184,7 @@ public:
 	virtual RID buffer_get_debug_texture(RID p_buffer) override;
 
 	virtual void set_build_quality(RS::ViewportOcclusionCullingBuildQuality p_quality) override;
+	virtual void set_use_occlusion_jitter(bool p_use_occlusion_jitter) override;
 
 	RaycastOcclusionCull();
 	~RaycastOcclusionCull();

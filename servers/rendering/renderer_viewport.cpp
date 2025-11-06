@@ -1461,6 +1461,10 @@ void RendererViewport::viewport_set_use_occlusion_culling(RID p_viewport, bool p
 	viewport->occlusion_buffer_dirty = true;
 }
 
+void RendererViewport::viewport_set_occlusion_culling_jitter_projection(bool p_use_occlusion_jitter) {
+	RendererSceneOcclusionCull::get_singleton()->set_use_occlusion_jitter(p_use_occlusion_jitter);
+}
+
 void RendererViewport::viewport_set_occlusion_rays_per_thread(int p_rays_per_thread) {
 	if (occlusion_rays_per_thread == p_rays_per_thread) {
 		return;
