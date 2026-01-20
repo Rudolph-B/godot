@@ -127,6 +127,16 @@ private:
 	float ssr_depth_tolerance = 0.5;
 	void _update_ssr();
 
+	// SSSH
+	bool sssh_enabled = false;
+	bool sssh_debug_enabled = false;
+	int sssh_debug_type = false;
+	int sssh_max_steps = 64;
+	float sssh_fade_in = 0.15;
+	float sssh_fade_out = 2.0;
+	float sssh_depth_tolerance = 0.5;
+	void _update_sssh();
+
 	// SSAO
 	bool ssao_enabled = false;
 	float ssao_radius = 1.0;
@@ -289,6 +299,22 @@ public:
 	float get_ssr_fade_out() const;
 	void set_ssr_depth_tolerance(float p_depth_tolerance);
 	float get_ssr_depth_tolerance() const;
+
+	// SSSH
+	void set_sssh_enabled(bool p_enabled);
+	bool is_sssh_enabled() const;
+	void set_sssh_debug_enabled(bool p_enabled);
+	bool is_sssh_debug_enabled() const;
+	void set_sssh_debug_type(int p_steps);
+	int get_sssh_debug_type() const;
+	void set_sssh_max_steps(int p_steps);
+	int get_sssh_max_steps() const;
+	void set_sssh_fade_in(float p_fade_in);
+	float get_sssh_fade_in() const;
+	void set_sssh_fade_out(float p_fade_out);
+	float get_sssh_fade_out() const;
+	void set_sssh_depth_tolerance(float p_depth_tolerance);
+	float get_sssh_depth_tolerance() const;
 
 	// SSAO
 	void set_ssao_enabled(bool p_enabled);

@@ -310,6 +310,83 @@ void Environment::_update_ssr() {
 			ssr_depth_tolerance);
 }
 
+// SSSH
+
+void Environment::set_sssh_enabled(bool p_enabled) {
+	sssh_enabled = p_enabled;
+	_update_sssh();
+}
+
+bool Environment::is_sssh_enabled() const {
+	return sssh_enabled;
+}
+
+void Environment::set_sssh_debug_enabled(bool p_enabled) {
+	sssh_debug_enabled = p_enabled;
+	_update_sssh();
+}
+
+bool Environment::is_sssh_debug_enabled() const {
+	return sssh_debug_enabled;
+}
+
+void Environment::set_sssh_debug_type(int p_type) {
+	sssh_debug_type = p_type;
+	_update_sssh();
+}
+
+int Environment::get_sssh_debug_type() const {
+	return sssh_debug_type;
+}
+
+void Environment::set_sssh_max_steps(int p_steps) {
+	sssh_max_steps = p_steps;
+	_update_sssh();
+}
+
+int Environment::get_sssh_max_steps() const {
+	return sssh_max_steps;
+}
+
+void Environment::set_sssh_fade_in(float p_fade_in) {
+	sssh_fade_in = MAX(p_fade_in, 0.0f);
+	_update_sssh();
+}
+
+float Environment::get_sssh_fade_in() const {
+	return sssh_fade_in;
+}
+
+void Environment::set_sssh_fade_out(float p_fade_out) {
+	sssh_fade_out = MAX(p_fade_out, 0.0f);
+	_update_sssh();
+}
+
+float Environment::get_sssh_fade_out() const {
+	return sssh_fade_out;
+}
+
+void Environment::set_sssh_depth_tolerance(float p_depth_tolerance) {
+	sssh_depth_tolerance = p_depth_tolerance;
+	_update_sssh();
+}
+
+float Environment::get_sssh_depth_tolerance() const {
+	return sssh_depth_tolerance;
+}
+
+void Environment::_update_sssh() {
+	RS::get_singleton()->environment_set_sssh(
+			environment,
+			sssh_enabled,
+			sssh_max_steps,
+			sssh_fade_in,
+			sssh_fade_out,
+			sssh_depth_tolerance,
+			sssh_debug_enabled,
+			sssh_debug_type);
+}
+
 // SSAO
 
 void Environment::set_ssao_enabled(bool p_enabled) {
@@ -1309,6 +1386,32 @@ void Environment::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssr_fade_out", PROPERTY_HINT_EXP_EASING, "positive_only"), "set_ssr_fade_out", "get_ssr_fade_out");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssr_depth_tolerance", PROPERTY_HINT_RANGE, "0.01,128,0.1"), "set_ssr_depth_tolerance", "get_ssr_depth_tolerance");
 
+	// SSSH
+
+	ClassDB::bind_method(D_METHOD("set_sssh_enabled", "enabled"), &Environment::set_sssh_enabled);
+	ClassDB::bind_method(D_METHOD("is_sssh_enabled"), &Environment::is_sssh_enabled);
+	ClassDB::bind_method(D_METHOD("set_sssh_debug_enabled", "enabled"), &Environment::set_sssh_debug_enabled);
+	ClassDB::bind_method(D_METHOD("is_sssh_debug_enabled"), &Environment::is_sssh_debug_enabled);
+	ClassDB::bind_method(D_METHOD("set_sssh_debug_type", "max_steps"), &Environment::set_sssh_debug_type);
+	ClassDB::bind_method(D_METHOD("get_sssh_debug_type"), &Environment::get_sssh_debug_type);
+	ClassDB::bind_method(D_METHOD("set_sssh_max_steps", "max_steps"), &Environment::set_sssh_max_steps);
+	ClassDB::bind_method(D_METHOD("get_sssh_max_steps"), &Environment::get_sssh_max_steps);
+	ClassDB::bind_method(D_METHOD("set_sssh_fade_in", "fade_in"), &Environment::set_sssh_fade_in);
+	ClassDB::bind_method(D_METHOD("get_sssh_fade_in"), &Environment::get_sssh_fade_in);
+	ClassDB::bind_method(D_METHOD("set_sssh_fade_out", "fade_out"), &Environment::set_sssh_fade_out);
+	ClassDB::bind_method(D_METHOD("get_sssh_fade_out"), &Environment::get_sssh_fade_out);
+	ClassDB::bind_method(D_METHOD("set_sssh_depth_tolerance", "depth_tolerance"), &Environment::set_sssh_depth_tolerance);
+	ClassDB::bind_method(D_METHOD("get_sssh_depth_tolerance"), &Environment::get_sssh_depth_tolerance);
+
+	ADD_GROUP("SSSH", "sssh_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sssh_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_sssh_enabled", "is_sssh_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sssh_debug_enabled"), "set_sssh_debug_enabled", "is_sssh_debug_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sssh_debug_type", PROPERTY_HINT_RANGE, "0,10,1"), "set_sssh_debug_type", "get_sssh_debug_type");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "sssh_max_steps", PROPERTY_HINT_RANGE, "32,512,1"), "set_sssh_max_steps", "get_sssh_max_steps");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sssh_fade_in", PROPERTY_HINT_EXP_EASING, "positive_only"), "set_sssh_fade_in", "get_sssh_fade_in");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sssh_fade_out", PROPERTY_HINT_EXP_EASING, "positive_only"), "set_sssh_fade_out", "get_sssh_fade_out");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sssh_depth_tolerance", PROPERTY_HINT_RANGE, "0.01,128,0.1"), "set_sssh_depth_tolerance", "get_sssh_depth_tolerance");
+
 	// SSAO
 	ClassDB::bind_method(D_METHOD("set_ssao_enabled", "enabled"), &Environment::set_ssao_enabled);
 	ClassDB::bind_method(D_METHOD("is_ssao_enabled"), &Environment::is_ssao_enabled);
@@ -1623,6 +1726,7 @@ Environment::Environment() {
 	_update_ambient_light();
 	_update_tonemap();
 	_update_ssr();
+	_update_sssh();
 	_update_ssao();
 	_update_ssil();
 	_update_sdfgi();

@@ -1315,6 +1315,17 @@ public:
 	PASS1(environment_set_ssr_half_size, bool)
 	PASS1(environment_set_ssr_roughness_quality, RS::EnvironmentSSRRoughnessQuality)
 
+	// SSSH
+	PASS8(environment_set_sssh, RID, bool, int, float, float, float, bool, int)
+
+	PASS1RC(bool, environment_get_sssh_enabled, RID)
+	PASS1RC(bool, environment_get_sssh_debug_enabled, RID)
+	PASS1RC(int, environment_get_sssh_debug_type, RID)
+	PASS1RC(int, environment_get_sssh_max_steps, RID)
+	PASS1RC(float, environment_get_sssh_fade_in, RID)
+	PASS1RC(float, environment_get_sssh_fade_out, RID)
+	PASS1RC(float, environment_get_sssh_depth_tolerance, RID)
+
 	// SSAO
 	PASS10(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, float)
 

@@ -821,6 +821,8 @@ public:
 	FUNC1(environment_set_ssr_half_size, bool)
 	FUNC1(environment_set_ssr_roughness_quality, EnvironmentSSRRoughnessQuality)
 
+	FUNC8(environment_set_sssh, RID, bool, int, float, float, float, bool, int)
+
 	FUNC10(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, float)
 	FUNC6(environment_set_ssao_quality, EnvironmentSSAOQuality, bool, float, int, float, float)
 

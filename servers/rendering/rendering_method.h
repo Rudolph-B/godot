@@ -264,6 +264,18 @@ public:
 	virtual void environment_set_ssr_half_size(bool p_half_size) = 0;
 	virtual void environment_set_ssr_roughness_quality(RS::EnvironmentSSRRoughnessQuality p_quality) = 0;
 
+	// SSSH
+
+	virtual void environment_set_sssh(RID p_env, bool p_enable, int p_max_steps, float p_fade_int, float p_fade_out, float p_depth_tolerance, bool p_debug_enabled, int p_debug_type) = 0;
+
+	virtual bool environment_get_sssh_enabled(RID p_env) const = 0;
+	virtual bool environment_get_sssh_debug_enabled(RID p_env) const = 0;
+	virtual int environment_get_sssh_debug_type(RID p_env) const = 0;
+	virtual int environment_get_sssh_max_steps(RID p_env) const = 0;
+	virtual float environment_get_sssh_fade_in(RID p_env) const = 0;
+	virtual float environment_get_sssh_fade_out(RID p_env) const = 0;
+	virtual float environment_get_sssh_depth_tolerance(RID p_env) const = 0;
+
 	// SSAO
 	virtual void environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) = 0;
 

@@ -690,6 +690,67 @@ float RendererEnvironmentStorage::environment_get_ssr_depth_tolerance(RID p_env)
 	return env->ssr_depth_tolerance;
 }
 
+// SSSH
+
+void RendererEnvironmentStorage::environment_set_sssh(RID p_env, bool p_enable, int p_max_steps, float p_fade_int, float p_fade_out, float p_depth_tolerance, bool p_debug_enabled, int p_debug_type) {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL(env);
+#ifdef DEBUG_ENABLED
+	if (OS::get_singleton()->get_current_rendering_method() != "forward_plus" && p_enable) {
+		WARN_PRINT_ONCE_ED("Screen-space shadows (SSSH) can only be enabled when using the Forward+ renderer.");
+	}
+#endif
+	env->sssh_enabled = p_enable;
+	env->sssh_debug_enabled = p_debug_enabled;
+	env->sssh_debug_type = p_debug_type;
+	env->sssh_max_steps = p_max_steps;
+	env->sssh_fade_in = p_fade_int;
+	env->sssh_fade_out = p_fade_out;
+	env->sssh_depth_tolerance = p_depth_tolerance;
+}
+
+bool RendererEnvironmentStorage::environment_get_sssh_enabled(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, false);
+	return env->sssh_enabled;
+}
+
+bool RendererEnvironmentStorage::environment_get_sssh_debug_enabled(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, false);
+	return env->sssh_debug_enabled;
+}
+
+int RendererEnvironmentStorage::environment_get_sssh_debug_type(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 64);
+	return env->sssh_debug_type;
+}
+
+int RendererEnvironmentStorage::environment_get_sssh_max_steps(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 64);
+	return env->sssh_max_steps;
+}
+
+float RendererEnvironmentStorage::environment_get_sssh_fade_in(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 0.15);
+	return env->sssh_fade_in;
+}
+
+float RendererEnvironmentStorage::environment_get_sssh_fade_out(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 2.0);
+	return env->sssh_fade_out;
+}
+
+float RendererEnvironmentStorage::environment_get_sssh_depth_tolerance(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 0.5);
+	return env->sssh_depth_tolerance;
+}
+
 // SSAO
 
 void RendererEnvironmentStorage::environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) {

@@ -141,6 +141,15 @@ private:
 		float ssr_fade_out = 2.0;
 		float ssr_depth_tolerance = 0.5;
 
+		// SSSH
+		bool sssh_enabled = false;
+		bool sssh_debug_enabled = false;
+		int sssh_debug_type = 0;
+		int sssh_max_steps = 64;
+		float sssh_fade_in = 0.15;
+		float sssh_fade_out = 2.0;
+		float sssh_depth_tolerance = 0.5;
+
 		// SSAO
 		bool ssao_enabled = false;
 		float ssao_radius = 1.0;
@@ -289,6 +298,16 @@ public:
 	float environment_get_ssr_fade_in(RID p_env) const;
 	float environment_get_ssr_fade_out(RID p_env) const;
 	float environment_get_ssr_depth_tolerance(RID p_env) const;
+
+	// SSSH
+	void environment_set_sssh(RID p_env, bool p_enable, int p_max_steps, float p_fade_int, float p_fade_out, float p_depth_tolerance, bool p_debug_enabled, int p_debug_type);
+	bool environment_get_sssh_enabled(RID p_env) const;
+	bool environment_get_sssh_debug_enabled(RID p_env) const;
+	int environment_get_sssh_debug_type(RID p_env) const;
+	int environment_get_sssh_max_steps(RID p_env) const;
+	float environment_get_sssh_fade_in(RID p_env) const;
+	float environment_get_sssh_fade_out(RID p_env) const;
+	float environment_get_sssh_depth_tolerance(RID p_env) const;
 
 	// SSAO
 	void environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect);

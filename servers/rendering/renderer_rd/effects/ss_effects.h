@@ -36,6 +36,8 @@
 #include "servers/rendering/renderer_rd/shaders/effects/screen_space_reflection_filter.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/screen_space_reflection_hiz.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/screen_space_reflection_resolve.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/screen_space_shadows.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/screen_space_shadows_resolve.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ss_effects_downsample.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssao.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssao_blur.glsl.gen.h"
@@ -53,6 +55,7 @@
 #define RB_SCOPE_SSIL SNAME("rb_ssil")
 #define RB_SCOPE_SSAO SNAME("rb_ssao")
 #define RB_SCOPE_SSR SNAME("rb_ssr")
+#define RB_SCOPE_SSSH SNAME("rb_sssh")
 
 #define RB_LINEAR_DEPTH SNAME("linear_depth")
 #define RB_FINAL SNAME("final")
@@ -67,6 +70,8 @@
 #define RB_HIZ SNAME("hiz")
 #define RB_SSR SNAME("ssr")
 #define RB_MIP_LEVEL SNAME("mip_level")
+
+#define RB_SSSH_DEBUG SNAME("sssh_debug")
 
 class RenderSceneBuffersRD;
 
@@ -86,7 +91,7 @@ public:
 
 	/* Last Frame */
 
-	void allocate_last_frame_buffer(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr);
+	void allocate_last_frame_buffer(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr, bool p_use_sssh);
 	void copy_internal_texture_to_last_frame(Ref<RenderSceneBuffersRD> p_render_buffers, CopyEffects &p_copy_effects);
 
 	/* SS Downsampler */
@@ -159,6 +164,20 @@ public:
 	void sss_set_scale(float p_scale, float p_depth_scale);
 
 	void sub_surface_scattering(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_diffuse, RID p_depth, const Projection &p_camera, const Size2i &p_screen_size);
+
+	/* Screen Space Shadows */
+	struct SSSHRenderBuffers {
+		Size2i size;
+		bool half_size = false;
+	};
+
+	struct SSSHSettings {
+		bool debug_enabled = false;
+		int debug_mode = 0;
+	};
+
+	void sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format);
+	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, int p_directional_light_count, RID p_directional_light_buffer, RendererRD::CopyEffects &p_copy_effects);
 
 private:
 	/* Settings */
@@ -497,6 +516,42 @@ private:
 		RID resolve_shader_version;
 		PipelineDeferredRD resolve_pipeline;
 	} ssr;
+
+	/* Screen Space Shadows */
+
+	struct ScreenSpaceShadows {
+		ScreenSpaceShadowsShaderRD sssh_shader;
+		RID sssh_shader_version;
+		PipelineDeferredRD sssh_pipeline;
+		RID ubo;
+
+		ScreenSpaceShadowsResolveShaderRD resolve_shader;
+		RID resolve_shader_version;
+		PipelineDeferredRD resolve_pipeline;
+	} sssh;
+
+	struct ScreenSpaceShadowsSceneData {
+		float projection[2][16];
+		float inv_projection[2][16];
+		float reprojection[2][16];
+		float eye_offset[2][4];
+		uint32_t directional_light_count = 0;
+		int32_t pad[3];
+	};
+
+	struct ScreenSpaceShadowsPushConstant {
+		int32_t screen_size[2];
+		int32_t mipmaps;
+		int32_t num_steps;
+		float distance_fade;
+		float curve_fade_in;
+		float depth_tolerance;
+		int32_t orthogonal;
+		uint32_t view_index;
+		int32_t debug_enabled = 0;
+		int32_t debug_mode = 0;
+		int32_t pad[1];
+	};
 
 	/* Subsurface scattering */
 

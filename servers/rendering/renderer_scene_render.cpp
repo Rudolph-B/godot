@@ -591,6 +591,39 @@ float RendererSceneRender::environment_get_ssr_depth_tolerance(RID p_env) const 
 	return environment_storage.environment_get_ssr_depth_tolerance(p_env);
 }
 
+// SSSH
+
+void RendererSceneRender::environment_set_sssh(RID p_env, bool p_enable, int p_max_steps, float p_fade_int, float p_fade_out, float p_depth_tolerance, bool p_debug_enabled, int p_debug_type) {
+	environment_storage.environment_set_sssh(p_env, p_enable, p_max_steps, p_fade_int, p_fade_out, p_depth_tolerance, p_debug_enabled, p_debug_type);
+}
+
+bool RendererSceneRender::environment_get_sssh_enabled(RID p_env) const {
+	return environment_storage.environment_get_sssh_enabled(p_env);
+}
+
+bool RendererSceneRender::environment_get_sssh_debug_enabled(RID p_env) const {
+	return environment_storage.environment_get_sssh_debug_enabled(p_env);
+}
+
+int RendererSceneRender::environment_get_sssh_debug_type(RID p_env) const {
+	return environment_storage.environment_get_sssh_debug_type(p_env);
+}
+
+int RendererSceneRender::environment_get_sssh_max_steps(RID p_env) const {
+	return environment_storage.environment_get_sssh_max_steps(p_env);
+}
+
+float RendererSceneRender::environment_get_sssh_fade_in(RID p_env) const {
+	return environment_storage.environment_get_sssh_fade_in(p_env);
+}
+
+float RendererSceneRender::environment_get_sssh_fade_out(RID p_env) const {
+	return environment_storage.environment_get_sssh_fade_out(p_env);
+}
+
+float RendererSceneRender::environment_get_sssh_depth_tolerance(RID p_env) const {
+	return environment_storage.environment_get_sssh_depth_tolerance(p_env);
+}
 // SSAO
 
 void RendererSceneRender::environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) {

@@ -342,6 +342,29 @@ SSEffects::SSEffects() {
 		}
 	}
 
+	// Screen Space Shadows
+	{
+		{
+			Vector<String> sssh_modes;
+			sssh_modes.push_back("\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(RendererSceneRender::MAX_DIRECTIONAL_LIGHTS) + "\n");
+
+			sssh.sssh_shader.initialize(sssh_modes);
+			sssh.sssh_shader_version = sssh.sssh_shader.version_create();
+
+			sssh.sssh_pipeline.create_compute_pipeline(sssh.sssh_shader.version_get_shader(sssh.sssh_shader_version, 0));
+		}
+
+		{
+			Vector<String> sssh_resolve_modes;
+			sssh_resolve_modes.push_back("\n");
+
+			sssh.resolve_shader.initialize(sssh_resolve_modes);
+			sssh.resolve_shader_version = sssh.resolve_shader.version_create();
+
+			sssh.resolve_pipeline.create_compute_pipeline(sssh.resolve_shader.version_get_shader(sssh.resolve_shader_version, 0));
+		}
+	}
+
 	// Subsurface scattering
 	sss_quality = RS::SubSurfaceScatteringQuality(int(GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_quality")));
 	sss_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_scale");
@@ -363,12 +386,12 @@ SSEffects::SSEffects() {
 	}
 }
 
-void SSEffects::allocate_last_frame_buffer(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr) {
+void SSEffects::allocate_last_frame_buffer(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr, bool p_use_sssh) {
 	Size2i last_frame_size = p_render_buffers->get_internal_size();
 	uint32_t mipmaps = 1;
 	uint32_t view_count = p_render_buffers->get_view_count();
 
-	if (!p_use_ssil && p_use_ssr && ssr_half_size) {
+	if (!p_use_ssil && (p_use_ssr || p_use_sssh) && ssr_half_size) {
 		last_frame_size /= 2;
 	}
 
@@ -441,6 +464,18 @@ SSEffects::~SSEffects() {
 
 		if (ssr.ubo.is_valid()) {
 			RD::get_singleton()->free_rid(ssr.ubo);
+		}
+	}
+
+	{
+		sssh.sssh_pipeline.free();
+		sssh.resolve_pipeline.free();
+
+		sssh.sssh_shader.version_free(sssh.sssh_shader_version);
+		sssh.resolve_shader.version_free(sssh.resolve_shader_version);
+
+		if (sssh.ubo.is_valid()) {
+			RD::get_singleton()->free_rid(sssh.ubo);
 		}
 	}
 
@@ -1729,6 +1764,115 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 
 		RD::get_singleton()->draw_command_end_label();
 	}
+}
+
+/* Screen Space Shadows */
+
+void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format) {
+	if (p_sssh_buffers.half_size != ssr_half_size) {
+		p_render_buffers->clear_context(RB_SCOPE_SSSH);
+	}
+
+	Vector2i internal_size = p_render_buffers->get_internal_size();
+	p_sssh_buffers.size = ssr_half_size ? (internal_size / 2) : internal_size;
+
+	p_sssh_buffers.half_size = ssr_half_size;
+
+	uint32_t view_count = p_render_buffers->get_view_count();
+
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSR, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_MIP_LEVEL, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+}
+
+void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, int p_directional_light_count, RID p_directional_light_buffer, RendererRD::CopyEffects &p_copy_effects) {
+	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
+	ERR_FAIL_NULL(uniform_set_cache);
+	MaterialStorage *material_storage = MaterialStorage::get_singleton();
+	ERR_FAIL_NULL(material_storage);
+
+	uint32_t view_count = p_render_buffers->get_view_count();
+	{
+		// Store some scene data in a UBO, in the near future we will use a UBO shared with other shaders
+		ScreenSpaceShadowsSceneData scene_data;
+
+		if (sssh.ubo.is_null()) {
+			sssh.ubo = RD::get_singleton()->uniform_buffer_create(sizeof(ScreenSpaceShadowsSceneData));
+		}
+
+		Projection correction;
+		correction.set_depth_correction(true);
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			Projection projection = correction * p_projections[v];
+
+			store_camera(projection, scene_data.projection[v]);
+			store_camera(projection.inverse(), scene_data.inv_projection[v]);
+			scene_data.directional_light_count = p_directional_light_count;
+		}
+
+		RD::get_singleton()->buffer_update(sssh.ubo, 0, sizeof(ScreenSpaceShadowsSceneData), &scene_data);
+	}
+
+	RID nearest_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+
+	{
+		RD::get_singleton()->draw_command_begin_label("SSSH Copy Depth");
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			RID src_texture = p_render_buffers->get_depth_texture(v);
+			RID dest_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0);
+			p_copy_effects.copy_depth_to_rect(src_texture, dest_texture, Rect2i(Vector2i(), p_sssh_buffers.size));
+		}
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+
+	RD::get_singleton()->draw_command_begin_label("SSSH Main");
+
+	RID ssr_shader = sssh.sssh_shader.version_get_shader(sssh.sssh_shader_version, 0);
+
+	for (uint32_t v = 0; v < view_count; v++) {
+		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, sssh.sssh_pipeline.get_rid());
+
+		ScreenSpaceShadowsPushConstant push_constant;
+		push_constant.screen_size[0] = p_sssh_buffers.size.width;
+		push_constant.screen_size[1] = p_sssh_buffers.size.height;
+		push_constant.mipmaps = 1;
+		push_constant.num_steps = 1;
+		push_constant.curve_fade_in = 0.0;
+		push_constant.distance_fade = 0.0;
+		push_constant.depth_tolerance = 0.0;
+		push_constant.orthogonal = p_projections[v].is_orthogonal();
+		push_constant.view_index = v;
+		push_constant.debug_enabled = p_settings.debug_enabled;
+		push_constant.debug_mode = p_settings.debug_mode;
+
+		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0, 1, 1);
+		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSR, v, 0);
+		RID sssh_debug = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH_DEBUG, v, 0);
+		RID mip_level_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_MIP_LEVEL, v, 0);
+
+		RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, hiz_texture });
+		RD::Uniform u_light_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 1, p_directional_light_buffer);
+		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 2, sssh.ubo);
+		RD::Uniform u_mip_level(RD::UNIFORM_TYPE_IMAGE, 3, mip_level_texture);
+		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 4, sssh_debug);
+		RD::Uniform u_sssh(RD::UNIFORM_TYPE_IMAGE, 5, sssh_texture);
+
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_light_data, u_scene_data, u_sssh, u_mip_level, u_sssh_debug), 0);
+		// RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_light_data, u_scene_data, u_mip_level, u_sssh_debug, u_output), 0);
+
+		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_sssh_buffers.size.width, p_sssh_buffers.size.height, 1);
+
+		RD::get_singleton()->compute_list_end();
+	}
+
+	RD::get_singleton()->draw_command_end_label();
 }
 
 /* Subsurface scattering */

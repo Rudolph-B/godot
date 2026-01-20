@@ -1300,6 +1300,8 @@ public:
 
 	virtual void environment_set_ssr_roughness_quality(EnvironmentSSRRoughnessQuality p_quality) = 0;
 
+	virtual void environment_set_sssh(RID p_env, bool p_enable, int p_max_steps, float p_fade_in, float p_fade_out, float p_depth_tolerance, bool p_debug_enabled, int p_debug_type) = 0;
+
 	virtual void environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) = 0;
 
 	enum EnvironmentSSAOQuality {

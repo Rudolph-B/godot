@@ -205,6 +205,16 @@ public:
 	float environment_get_ssr_fade_out(RID p_env) const;
 	float environment_get_ssr_depth_tolerance(RID p_env) const;
 
+	// SSR
+	void environment_set_sssh(RID p_env, bool p_enable, int p_max_steps, float p_fade_int, float p_fade_out, float p_depth_tolerance, bool p_debug_enabled, int p_debug_type);
+	bool environment_get_sssh_enabled(RID p_env) const;
+	bool environment_get_sssh_debug_enabled(RID p_env) const;
+	int environment_get_sssh_debug_type(RID p_env) const;
+	int environment_get_sssh_max_steps(RID p_env) const;
+	float environment_get_sssh_fade_in(RID p_env) const;
+	float environment_get_sssh_fade_out(RID p_env) const;
+	float environment_get_sssh_depth_tolerance(RID p_env) const;
+
 	virtual void environment_set_ssr_half_size(bool p_half_size) = 0;
 	virtual void environment_set_ssr_roughness_quality(RS::EnvironmentSSRRoughnessQuality p_quality) = 0;
 
