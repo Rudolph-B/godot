@@ -2193,28 +2193,18 @@ void fragment_shader(in SceneData scene_data) {
 		if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSSH)) {
 			float ssr_mip_level = 0.0;
 
-#ifdef USE_MULTIVIEW
-			vec4 ssr = textureLod(sampler2DArray(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), ssr_mip_level);
-#else
-			vec4 ssr = textureLod(sampler2D(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, ssr_mip_level);
-#endif // USE_MULTIVIEW
-
 			if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_DEBUG_SSSH)) {
 				// Alpha is premultiplied.
 #ifdef USE_MULTIVIEW
-				vec4 ssr = textureLod(sampler2DArray(sssh_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), ssr_mip_level);
+				vec4 sssh = textureLod(sampler2DArray(sssh_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), 0.0);
 #else
-				vec4 ssr = textureLod(sampler2D(sssh_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, ssr_mip_level);
+				vec4 sssh = textureLod(sampler2D(sssh_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, 0.0);
 #endif // USE_MULTIVIEW
 
-				frag_color = ssr;
+				frag_color = sssh;
 				//				frag_color = vec4(0.8, 0.8, 0.8, 0.0);
 				return;
 			}
-
-			// Apply fade when approaching 0.7 roughness to smoothen the harsh cutoff in the main SSR trace pass.
-			ssr *= smoothstep(0.0, 1.0, 1.0 - clamp((roughness - 0.6) / (0.7 - 0.6), 0.0, 1.0));
-			indirect_specular_light = indirect_specular_light * (1.0 - ssr.a) + ssr.rgb;
 		}
 	}
 #endif // AMBIENT_LIGHT_DISABLED
@@ -2508,6 +2498,17 @@ void fragment_shader(in SceneData scene_data) {
 
 #undef BIAS_FUNC
 				} // shadows
+
+				//process sssh
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSSH)) {
+#ifdef USE_MULTIVIEW
+					float ss_shadow = textureLod(sampler2DArray(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), 0.0).r;
+#else
+				float ss_shadow = textureLod(sampler2D(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, 0.0).r;
+#endif // USE_MULTIVIEW
+
+					shadow = min(ss_shadow, shadow);
+				}
 
 				if (i < 4) {
 					shadow0 |= uint(clamp(shadow * 255.0, 0.0, 255.0)) << (i * 8);

@@ -71,6 +71,7 @@
 #define RB_SSR SNAME("ssr")
 #define RB_MIP_LEVEL SNAME("mip_level")
 
+#define RB_SSSH SNAME("sssh")
 #define RB_SSSH_DEBUG SNAME("sssh_debug")
 
 class RenderSceneBuffersRD;
@@ -172,6 +173,7 @@ public:
 	};
 
 	struct SSSHSettings {
+		float depth_tolerance = 0.5;
 		bool debug_enabled = false;
 		int debug_mode = 0;
 	};
@@ -549,7 +551,7 @@ private:
 		int32_t orthogonal;
 		uint32_t view_index;
 		int32_t debug_enabled = 0;
-		int32_t debug_mode = 0;
+		uint32_t debug_mode = 0;
 		int32_t pad[1];
 	};
 

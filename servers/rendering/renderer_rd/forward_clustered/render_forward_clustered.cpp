@@ -1496,6 +1496,7 @@ void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_bu
 	ss_effects->sssh_allocate_buffers(p_render_buffers, rb_data->ss_effects_data.sssh, p_render_buffers->get_base_data_format());
 
 	RendererRD::SSEffects::SSSHSettings settings;
+	settings.depth_tolerance = environment_get_sssh_depth_tolerance(p_environment);
 	settings.debug_enabled = environment_get_sssh_debug_enabled(p_environment);
 	settings.debug_mode = environment_get_sssh_debug_type(p_environment);
 
@@ -3696,8 +3697,8 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 					sssh = rb->get_texture(RB_SCOPE_SSSH, RB_FINAL);
 				}
 			} else {
-				if (rb->has_texture(RB_SCOPE_SSSH, RB_SSR)) {
-					sssh = rb->get_texture(RB_SCOPE_SSSH, RB_SSR);
+				if (rb->has_texture(RB_SCOPE_SSSH, RB_SSSH)) {
+					sssh = rb->get_texture(RB_SCOPE_SSSH, RB_SSSH);
 				}
 			}
 		}
