@@ -1781,7 +1781,7 @@ void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	uint32_t view_count = p_render_buffers->get_view_count();
 
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSR, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_MIP_LEVEL, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 }
@@ -1845,23 +1845,23 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		push_constant.num_steps = 1;
 		push_constant.curve_fade_in = 0.0;
 		push_constant.distance_fade = 0.0;
-		push_constant.depth_tolerance = 0.0;
+		push_constant.depth_tolerance = p_settings.depth_tolerance;
 		push_constant.orthogonal = p_projections[v].is_orthogonal();
 		push_constant.view_index = v;
 		push_constant.debug_enabled = p_settings.debug_enabled;
 		push_constant.debug_mode = p_settings.debug_mode;
 
 		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0, 1, 1);
-		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSR, v, 0);
+		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH, v, 0);
 		RID sssh_debug = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH_DEBUG, v, 0);
 		RID mip_level_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_MIP_LEVEL, v, 0);
 
 		RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, hiz_texture });
 		RD::Uniform u_light_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 1, p_directional_light_buffer);
 		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 2, sssh.ubo);
-		RD::Uniform u_mip_level(RD::UNIFORM_TYPE_IMAGE, 3, mip_level_texture);
-		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 4, sssh_debug);
-		RD::Uniform u_sssh(RD::UNIFORM_TYPE_IMAGE, 5, sssh_texture);
+		RD::Uniform u_sssh(RD::UNIFORM_TYPE_IMAGE, 3, sssh_texture);
+		RD::Uniform u_mip_level(RD::UNIFORM_TYPE_IMAGE, 4, mip_level_texture);
+		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 5, sssh_debug);
 
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_light_data, u_scene_data, u_sssh, u_mip_level, u_sssh_debug), 0);
 		// RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_light_data, u_scene_data, u_mip_level, u_sssh_debug, u_output), 0);
