@@ -2201,9 +2201,10 @@ void fragment_shader(in SceneData scene_data) {
 				vec4 sssh = textureLod(sampler2D(sssh_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, 0.0);
 #endif // USE_MULTIVIEW
 
-				frag_color = sssh;
-				//				frag_color = vec4(0.8, 0.8, 0.8, 0.0);
-				return;
+				if (sssh.a > 0.0) {
+					frag_color = sssh;
+					return;
+				}
 			}
 		}
 	}
