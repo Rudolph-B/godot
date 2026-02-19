@@ -179,7 +179,7 @@ public:
 	};
 
 	void sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format);
-	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, int p_directional_light_count, RID p_directional_light_buffer, RendererRD::CopyEffects &p_copy_effects);
+	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, RendererRD::CopyEffects &p_copy_effects);
 
 private:
 	/* Settings */
@@ -537,14 +537,13 @@ private:
 		float inv_projection[2][16];
 		float reprojection[2][16];
 		float eye_offset[2][4];
-		uint32_t directional_light_count = 0;
-		int32_t pad[3];
 	};
 
 	struct ScreenSpaceShadowsPushConstant {
 		int32_t screen_size[2];
 		int32_t mipmaps;
 		int32_t num_steps;
+		float light_coordinates[4];
 		float distance_fade;
 		float curve_fade_in;
 		float depth_tolerance;

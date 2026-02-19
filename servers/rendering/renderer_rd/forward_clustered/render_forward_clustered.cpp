@@ -1484,12 +1484,22 @@ void RenderForwardClustered::_process_ssr(Ref<RenderSceneBuffersRD> p_render_buf
 	ss_effects->screen_space_reflection(p_render_buffers, rb_data->ss_effects_data.ssr, p_normal_slices, environment_get_ssr_max_steps(p_environment), environment_get_ssr_fade_in(p_environment), environment_get_ssr_fade_out(p_environment), environment_get_ssr_depth_tolerance(p_environment), p_projections, reprojections, p_eye_offsets, *copy_effects);
 }
 
-void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const Projection *p_projections, int p_directional_light_count, RID p_directional_light_buffer) {
+void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const Projection *p_projections, const Transform3D &p_transform, RID p_light) {
 	ERR_FAIL_NULL(ss_effects);
 	ERR_FAIL_COND(p_render_buffers.is_null());
 
 	Ref<RenderBufferDataForwardClustered> rb_data = p_render_buffers->get_custom_data(RB_SCOPE_FORWARD_CLUSTERED);
 	ERR_FAIL_COND(rb_data.is_null());
+
+	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
+
+	ERR_FAIL_COND(!light_storage->owns_light_instance(p_light));
+	RID base = light_storage->light_instance_get_base_light(p_light);
+	ERR_FAIL_COND(light_storage->light_get_type(base) != RS::LIGHT_DIRECTIONAL);
+
+	Transform3D inverse_transform = p_transform.affine_inverse();
+	Transform3D light_transform = light_storage->light_instance_get_base_transform(p_light);
+	Vector3 light_direction = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 0, 1))).normalized();
 
 	RENDER_TIMESTAMP("Process SSSH");
 
@@ -1500,7 +1510,7 @@ void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_bu
 	settings.debug_enabled = environment_get_sssh_debug_enabled(p_environment);
 	settings.debug_mode = environment_get_sssh_debug_type(p_environment);
 
-	ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, p_directional_light_count, p_directional_light_buffer, *copy_effects);
+	ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, light_direction, *copy_effects);
 }
 
 void RenderForwardClustered::_copy_framebuffer_to_ss_effects(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr) {
@@ -1629,7 +1639,13 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 		}
 
 		if (p_use_sssh) {
-			_process_sssh(rb, p_render_data->environment, p_render_data->scene_data->view_projection, p_render_data->directional_light_count, light_storage->get_directional_light_buffer());
+			for (uint32_t i = 0; i < p_render_data->directional_shadows.size(); i++) {
+				_process_sssh(rb,
+						p_render_data->environment,
+						p_render_data->scene_data->view_projection,
+						p_render_data->scene_data->cam_transform,
+						p_render_data->render_shadows[p_render_data->directional_shadows[i]].light);
+			}
 		}
 
 		if (p_use_ssr) {
