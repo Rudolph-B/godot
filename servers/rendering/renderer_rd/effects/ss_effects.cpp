@@ -1786,7 +1786,7 @@ void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 }
 
-void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, int p_directional_light_count, RID p_directional_light_buffer, RendererRD::CopyEffects &p_copy_effects) {
+void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, RendererRD::CopyEffects &p_copy_effects) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
@@ -1809,7 +1809,6 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 
 			store_camera(projection, scene_data.projection[v]);
 			store_camera(projection.inverse(), scene_data.inv_projection[v]);
-			scene_data.directional_light_count = p_directional_light_count;
 		}
 
 		RD::get_singleton()->buffer_update(sssh.ubo, 0, sizeof(ScreenSpaceShadowsSceneData), &scene_data);
@@ -1833,10 +1832,30 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 
 	RID ssr_shader = sssh.sssh_shader.version_get_shader(sssh.sssh_shader_version, 0);
 
+	Projection correction;
+	correction.set_depth_correction(true);
+
 	for (uint32_t v = 0; v < view_count; v++) {
 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
 
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, sssh.sssh_pipeline.get_rid());
+
+		// Calculate light coordinate
+		Projection projection = correction * p_projections[v];
+		Vector4 projected_light = projection.xform(Vector4(p_light_direction.x, p_light_direction.y, p_light_direction.z, 0));
+
+		// Floating point division in the shader has a practical limit for precision when the light is *very* far off screen (~1m pixels+)
+		// So when computing the light XY coordinate, use an adjusted w value to handle these extreme values
+		float xy_light_w = projected_light.w;
+		float FP_limit = 0.000002f * 64;
+		xy_light_w = MAX(FP_limit, Math::abs(xy_light_w)) * (xy_light_w >= 0 ? 1.0 : -1.0);
+
+		// Need precise XY pixel coordinates of the light
+		Vector4 light_coordinate = Vector4(
+				((projected_light.x / xy_light_w) * +0.5f + 0.5f) * p_sssh_buffers.size.width,
+				((projected_light.y / xy_light_w) * +0.5f + 0.5f) * p_sssh_buffers.size.height,
+				projected_light.w == 0 ? 0 : (projected_light.z / projected_light.w),
+				projected_light.w > 0 ? 1 : -1);
 
 		ScreenSpaceShadowsPushConstant push_constant;
 		push_constant.screen_size[0] = p_sssh_buffers.size.width;
@@ -1850,6 +1869,10 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		push_constant.view_index = v;
 		push_constant.debug_enabled = p_settings.debug_enabled;
 		push_constant.debug_mode = p_settings.debug_mode;
+		push_constant.light_coordinates[0] = light_coordinate.x;
+		push_constant.light_coordinates[1] = light_coordinate.y;
+		push_constant.light_coordinates[2] = light_coordinate.z;
+		push_constant.light_coordinates[3] = light_coordinate.w;
 
 		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0, 1, 1);
 		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH, v, 0);
@@ -1857,14 +1880,12 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		RID mip_level_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_MIP_LEVEL, v, 0);
 
 		RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, hiz_texture });
-		RD::Uniform u_light_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 1, p_directional_light_buffer);
-		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 2, sssh.ubo);
-		RD::Uniform u_sssh(RD::UNIFORM_TYPE_IMAGE, 3, sssh_texture);
-		RD::Uniform u_mip_level(RD::UNIFORM_TYPE_IMAGE, 4, mip_level_texture);
-		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 5, sssh_debug);
+		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 1, sssh.ubo);
+		RD::Uniform u_sssh(RD::UNIFORM_TYPE_IMAGE, 2, sssh_texture);
+		RD::Uniform u_mip_level(RD::UNIFORM_TYPE_IMAGE, 3, mip_level_texture);
+		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 4, sssh_debug);
 
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_light_data, u_scene_data, u_sssh, u_mip_level, u_sssh_debug), 0);
-		// RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_light_data, u_scene_data, u_mip_level, u_sssh_debug, u_output), 0);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_scene_data, u_sssh, u_mip_level, u_sssh_debug), 0);
 
 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
 		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_sssh_buffers.size.width, p_sssh_buffers.size.height, 1);
