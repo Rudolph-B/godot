@@ -1509,6 +1509,7 @@ void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_bu
 	settings.depth_tolerance = environment_get_sssh_depth_tolerance(p_environment);
 	settings.debug_enabled = environment_get_sssh_debug_enabled(p_environment);
 	settings.debug_mode = environment_get_sssh_debug_type(p_environment);
+	settings.max_steps = environment_get_sssh_max_steps(p_environment);
 
 	ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, light_direction, *copy_effects);
 }
@@ -1645,6 +1646,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 						p_render_data->scene_data->view_projection,
 						p_render_data->scene_data->cam_transform,
 						p_render_data->render_shadows[p_render_data->directional_shadows[i]].light);
+				break;
 			}
 		}
 

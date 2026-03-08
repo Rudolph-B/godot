@@ -176,6 +176,7 @@ public:
 		float depth_tolerance = 0.5;
 		bool debug_enabled = false;
 		int debug_mode = 0;
+		int max_steps = 0;
 	};
 
 	void sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format);
@@ -541,13 +542,12 @@ private:
 
 	struct ScreenSpaceShadowsPushConstant {
 		int32_t screen_size[2];
-		int32_t mipmaps;
-		int32_t num_steps;
+		int32_t light_offset[2];
 		float light_coordinates[4];
-		float distance_fade;
-		float curve_fade_in;
+		float min;
+		float max;
 		float depth_tolerance;
-		int32_t orthogonal;
+		int32_t max_steps;
 		uint32_t view_index;
 		int32_t debug_enabled = 0;
 		uint32_t debug_mode = 0;
