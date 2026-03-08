@@ -1783,7 +1783,7 @@ void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_MIP_LEVEL, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 }
 
 void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, RendererRD::CopyEffects &p_copy_effects) {
@@ -1828,6 +1828,9 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		RD::get_singleton()->draw_command_end_label();
 	}
 
+	RID debug = p_render_buffers->get_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG);
+	RD::get_singleton()->texture_clear(debug, Color(0, 0, 0, 1.0), 0, 1, 0, view_count);
+
 	RD::get_singleton()->draw_command_begin_label("SSSH Main");
 
 	RID ssr_shader = sssh.sssh_shader.version_get_shader(sssh.sssh_shader_version, 0);
@@ -1857,15 +1860,29 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 				projected_light.w == 0 ? 0 : (projected_light.z / projected_light.w),
 				projected_light.w > 0 ? 1 : -1);
 
+		// BEND STUDIO CALCS
+		int inWaveSize = 64;
+
+		Vector2 light_xy = Vector2(
+				light_coordinate.x,
+				light_coordinate.y);
+
+		Vector2i bound_start = Vector2i(
+				floor(-light_xy.x / 64.0) - 1,
+				floor(-light_xy.y / 64.0) - 1);
+
+		Vector2i bound_end = Vector2i(
+				ceil((p_sssh_buffers.size.width - light_xy.x) / 64.0) + 2,
+				ceil((p_sssh_buffers.size.height - light_xy.y) / 64.0) + 2);
+		Size2i bound_size = bound_end - bound_start;
+
 		ScreenSpaceShadowsPushConstant push_constant;
 		push_constant.screen_size[0] = p_sssh_buffers.size.width;
 		push_constant.screen_size[1] = p_sssh_buffers.size.height;
-		push_constant.mipmaps = 1;
-		push_constant.num_steps = 1;
-		push_constant.curve_fade_in = 0.0;
-		push_constant.distance_fade = 0.0;
+		push_constant.min = 0.0;
+		push_constant.max = 0.0;
 		push_constant.depth_tolerance = p_settings.depth_tolerance;
-		push_constant.orthogonal = p_projections[v].is_orthogonal();
+		push_constant.max_steps = p_settings.max_steps;
 		push_constant.view_index = v;
 		push_constant.debug_enabled = p_settings.debug_enabled;
 		push_constant.debug_mode = p_settings.debug_mode;
@@ -1873,6 +1890,16 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		push_constant.light_coordinates[1] = light_coordinate.y;
 		push_constant.light_coordinates[2] = light_coordinate.z;
 		push_constant.light_coordinates[3] = light_coordinate.w;
+		push_constant.light_offset[0] = bound_start.x * 64;
+		push_constant.light_offset[1] = bound_start.y * 64;
+
+		{
+			Projection inv_proj = projection.inverse();
+			Vector4 pos = inv_proj.xform(Vector4(0.0f, 0.0f, light_coordinate.z, 1.0f));
+			float linear_light_z = pos.z / pos.w;
+			// Set a breakpoint on the next line to inspect linear_light_z
+			(void)linear_light_z;
+		}
 
 		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0, 1, 1);
 		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH, v, 0);
@@ -1888,7 +1915,7 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_scene_data, u_sssh, u_mip_level, u_sssh_debug), 0);
 
 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_sssh_buffers.size.width, p_sssh_buffers.size.height, 1);
+		RD::get_singleton()->compute_list_dispatch(compute_list, inWaveSize, bound_size.x, bound_size.y);
 
 		RD::get_singleton()->compute_list_end();
 	}
