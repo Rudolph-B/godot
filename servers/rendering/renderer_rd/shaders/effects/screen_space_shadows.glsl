@@ -8,7 +8,7 @@
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-layout(set = 0, binding = 0) uniform sampler2D source_hiz;
+layout(set = 0, binding = 0) uniform sampler2D depth_buffer;
 layout(set = 0, binding = 1, std140) uniform SceneData {
 	mat4 projection[2];
 	mat4 inv_projection[2];
@@ -18,9 +18,7 @@ layout(set = 0, binding = 1, std140) uniform SceneData {
 scene_data;
 
 layout(r8, set = 0, binding = 2) uniform restrict writeonly image2D output_shadow;
-layout(r8, set = 0, binding = 3) uniform restrict writeonly image2D output_mip_level;
-
-layout(rgba16f, set = 0, binding = 4) uniform restrict writeonly image2D output_debug;
+layout(rgba16f, set = 0, binding = 3) uniform restrict writeonly image2D output_debug;
 
 layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
@@ -103,7 +101,7 @@ void main() {
 	vec2 pixel_pos = mix(group_start, group_end, float(thread_id) / WAVE_SIZE);
 
 	float pixel_distance = !reverse_direction ? axis_start - thread_id : axis_start + thread_id;
-
+	//	shadow = mix(1.0, shadow, directional_lights.data[i].shadow_opacity);
 	if (any(greaterThanEqual(pixel_pos, params.screen_size))) {
 		return;
 	}
@@ -116,7 +114,7 @@ void main() {
 
 	vec2 xy_offset = vec2(0, 0);
 	for (int i = 0; i < READ_COUNT; i++) {
-		shadowing_depth[i] = texelFetch(source_hiz, ivec2(pixel_pos + xy_offset), 0).x;
+		shadowing_depth[i] = texelFetch(depth_buffer, ivec2(pixel_pos + xy_offset), 0).x;
 		sample_distance[i] = pixel_distance - (WAVE_SIZE * i) * direction;
 
 		int idx = (i * WAVE_SIZE) + thread_id;
@@ -161,7 +159,6 @@ void main() {
 
 	ivec2 ipixel_pos = ivec2(pixel_pos);
 	imageStore(output_shadow, ipixel_pos, vec4(shadow, 0.0, 0.0, 0.0));
-	//	imageStore(output_mip_level, ipixel_pos, depth_color);
 
 	vec4 line_color = vec4(0.0, 0.0, 0.0, 0.0);
 	switch (params.debug_mode) {
@@ -181,7 +178,7 @@ void main() {
 			break;
 		case 2:
 			// Individual
-			float test_depth2 = abs(linearize_depth(texelFetch(source_hiz, ivec2(pixel_pos + screen_dir.xy * params.max_steps), 0).x));
+			float test_depth2 = abs(linearize_depth(texelFetch(depth_buffer, ivec2(pixel_pos + screen_dir.xy * params.max_steps), 0).x));
 			test_depth2 -= abs(DepthData[thread_id + params.max_steps]);
 			test_depth2 = abs(test_depth2);
 			if (test_depth2 < 0.001) {
@@ -193,7 +190,7 @@ void main() {
 			break;
 		case 1:
 			// Shared
-			float test_depth1 = abs(linearize_depth(texelFetch(source_hiz, ivec2(pixel_pos + screen_dir.xy * params.max_steps), 0).x)) / 200.0;
+			float test_depth1 = abs(linearize_depth(texelFetch(depth_buffer, ivec2(pixel_pos + screen_dir.xy * params.max_steps), 0).x)) / 200.0;
 			vec4 depth_debug1 = vec4(test_depth1, test_depth1, test_depth1, 1.0);
 			imageStore(output_debug, ipixel_pos, depth_debug1);
 			break;

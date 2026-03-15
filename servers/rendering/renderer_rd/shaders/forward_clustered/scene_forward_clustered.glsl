@@ -2189,7 +2189,7 @@ void fragment_shader(in SceneData scene_data) {
 			indirect_specular_light = indirect_specular_light * (1.0 - ssr.a) + ssr.rgb;
 		}
 
-		//process sssh
+		//process sssh debug
 		if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSSH)) {
 			float ssr_mip_level = 0.0;
 

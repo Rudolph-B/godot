@@ -169,7 +169,6 @@ public:
 	/* Screen Space Shadows */
 	struct SSSHRenderBuffers {
 		Size2i size;
-		bool half_size = false;
 	};
 
 	struct SSSHSettings {
@@ -179,7 +178,7 @@ public:
 		int max_steps = 0;
 	};
 
-	void sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format);
+	void sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format, uint32_t p_contact_shadow_count);
 	void screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, RendererRD::CopyEffects &p_copy_effects);
 
 private:

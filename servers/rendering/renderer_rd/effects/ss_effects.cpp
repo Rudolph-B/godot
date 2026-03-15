@@ -1768,22 +1768,13 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 
 /* Screen Space Shadows */
 
-void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format) {
-	if (p_sssh_buffers.half_size != ssr_half_size) {
-		p_render_buffers->clear_context(RB_SCOPE_SSSH);
-	}
-
-	Vector2i internal_size = p_render_buffers->get_internal_size();
-	p_sssh_buffers.size = ssr_half_size ? (internal_size / 2) : internal_size;
-
-	p_sssh_buffers.half_size = ssr_half_size;
+void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format, uint32_t p_contact_shadow_count) {
+	p_sssh_buffers.size = p_render_buffers->get_internal_size();
 
 	uint32_t view_count = p_render_buffers->get_view_count();
 
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_MIP_LEVEL, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, p_contact_shadow_count * view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, p_contact_shadow_count * view_count);
 }
 
 void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, RendererRD::CopyEffects &p_copy_effects) {
@@ -1812,20 +1803,6 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 		}
 
 		RD::get_singleton()->buffer_update(sssh.ubo, 0, sizeof(ScreenSpaceShadowsSceneData), &scene_data);
-	}
-
-	RID nearest_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
-
-	{
-		RD::get_singleton()->draw_command_begin_label("SSSH Copy Depth");
-
-		for (uint32_t v = 0; v < view_count; v++) {
-			RID src_texture = p_render_buffers->get_depth_texture(v);
-			RID dest_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0);
-			p_copy_effects.copy_depth_to_rect(src_texture, dest_texture, Rect2i(Vector2i(), p_sssh_buffers.size));
-		}
-
-		RD::get_singleton()->draw_command_end_label();
 	}
 
 	RID debug = p_render_buffers->get_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG);
@@ -1901,18 +1878,18 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 			(void)linear_light_z;
 		}
 
-		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_HIZ, v, 0, 1, 1);
+		RID nearest_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+
+		RID depth_buffer = p_render_buffers->get_depth_texture(v);
 		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH, v, 0);
 		RID sssh_debug = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH_DEBUG, v, 0);
-		RID mip_level_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_MIP_LEVEL, v, 0);
 
-		RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, hiz_texture });
+		RD::Uniform u_depth_buffer(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, depth_buffer });
 		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 1, sssh.ubo);
 		RD::Uniform u_sssh(RD::UNIFORM_TYPE_IMAGE, 2, sssh_texture);
-		RD::Uniform u_mip_level(RD::UNIFORM_TYPE_IMAGE, 3, mip_level_texture);
-		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 4, sssh_debug);
+		RD::Uniform u_sssh_debug(RD::UNIFORM_TYPE_IMAGE, 3, sssh_debug);
 
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_hiz, u_scene_data, u_sssh, u_mip_level, u_sssh_debug), 0);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssr_shader, 0, u_depth_buffer, u_scene_data, u_sssh, u_sssh_debug), 0);
 
 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
 		RD::get_singleton()->compute_list_dispatch(compute_list, inWaveSize, bound_size.x, bound_size.y);

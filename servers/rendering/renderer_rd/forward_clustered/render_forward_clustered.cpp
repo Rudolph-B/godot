@@ -1484,7 +1484,7 @@ void RenderForwardClustered::_process_ssr(Ref<RenderSceneBuffersRD> p_render_buf
 	ss_effects->screen_space_reflection(p_render_buffers, rb_data->ss_effects_data.ssr, p_normal_slices, environment_get_ssr_max_steps(p_environment), environment_get_ssr_fade_in(p_environment), environment_get_ssr_fade_out(p_environment), environment_get_ssr_depth_tolerance(p_environment), p_projections, reprojections, p_eye_offsets, *copy_effects);
 }
 
-void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const Projection *p_projections, const Transform3D &p_transform, RID p_light) {
+void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const Projection *p_projections, const Transform3D &p_transform, const LocalVector<int> &p_contact_shadows, const RenderShadowData *p_render_shadows) {
 	ERR_FAIL_NULL(ss_effects);
 	ERR_FAIL_COND(p_render_buffers.is_null());
 
@@ -1493,25 +1493,30 @@ void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_bu
 
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
-	ERR_FAIL_COND(!light_storage->owns_light_instance(p_light));
-	RID base = light_storage->light_instance_get_base_light(p_light);
-	ERR_FAIL_COND(light_storage->light_get_type(base) != RS::LIGHT_DIRECTIONAL);
-
-	Transform3D inverse_transform = p_transform.affine_inverse();
-	Transform3D light_transform = light_storage->light_instance_get_base_transform(p_light);
-	Vector3 light_direction = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 0, 1))).normalized();
-
-	RENDER_TIMESTAMP("Process SSSH");
-
-	ss_effects->sssh_allocate_buffers(p_render_buffers, rb_data->ss_effects_data.sssh, p_render_buffers->get_base_data_format());
-
 	RendererRD::SSEffects::SSSHSettings settings;
 	settings.depth_tolerance = environment_get_sssh_depth_tolerance(p_environment);
 	settings.debug_enabled = environment_get_sssh_debug_enabled(p_environment);
 	settings.debug_mode = environment_get_sssh_debug_type(p_environment);
 	settings.max_steps = environment_get_sssh_max_steps(p_environment);
 
-	ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, light_direction, *copy_effects);
+	RENDER_TIMESTAMP("Process SSSH");
+
+	Transform3D inverse_transform = p_transform.affine_inverse();
+
+	ss_effects->sssh_allocate_buffers(p_render_buffers, rb_data->ss_effects_data.sssh, p_render_buffers->get_base_data_format(), p_contact_shadows.size());
+
+	for (uint32_t i = 0; i < p_contact_shadows.size(); i++) {
+		RID light_instance = p_render_shadows[p_contact_shadows[i]].light;
+		RID base = light_storage->light_instance_get_base_light(light_instance);
+		if (!light_storage->light_directional_get_screen_space_shadows(base)) {
+			continue;
+		}
+
+		Transform3D light_transform = light_storage->light_instance_get_base_transform(light_instance);
+		Vector3 light_direction = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 0, 1))).normalized();
+
+		ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, light_direction, *copy_effects);
+	}
 }
 
 void RenderForwardClustered::_copy_framebuffer_to_ss_effects(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr) {
@@ -1547,6 +1552,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 	p_render_data->cube_shadows.clear();
 	p_render_data->shadows.clear();
 	p_render_data->directional_shadows.clear();
+	p_render_data->contact_shadows.clear();
 
 	float lod_distance_multiplier = p_render_data->scene_data->cam_projection.get_lod_multiplier();
 	{
@@ -1560,6 +1566,14 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 				p_render_data->cube_shadows.push_back(i);
 			} else {
 				p_render_data->shadows.push_back(i);
+			}
+
+			if (rb_data.is_valid() && ss_effects) {
+				// Add contact shadows to be processed
+				if (p_render_data->render_shadows[i].pass == 0 && light_storage->light_directional_get_screen_space_shadows(base)) {
+					// Contact shadows only need one pass
+					p_render_data->contact_shadows.push_back(i);
+				}
 			}
 		}
 
@@ -1640,14 +1654,12 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 		}
 
 		if (p_use_sssh) {
-			for (uint32_t i = 0; i < p_render_data->directional_shadows.size(); i++) {
-				_process_sssh(rb,
-						p_render_data->environment,
-						p_render_data->scene_data->view_projection,
-						p_render_data->scene_data->cam_transform,
-						p_render_data->render_shadows[p_render_data->directional_shadows[i]].light);
-				break;
-			}
+			_process_sssh(rb,
+					p_render_data->environment,
+					p_render_data->scene_data->view_projection,
+					p_render_data->scene_data->cam_transform,
+					p_render_data->contact_shadows,
+					p_render_data->render_shadows);
 		}
 
 		if (p_use_ssr) {
@@ -2465,7 +2477,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	RD::get_singleton()->draw_command_end_label();
 
 	RD::get_singleton()->draw_command_begin_label("Copy Framebuffer for SSIL/SSR");
-	if (using_ssil || using_ssr || using_sssh) {
+	if (using_ssil || using_ssr) {
 		RENDER_TIMESTAMP("Copy Final Framebuffer (SSIL/SSR)");
 		_copy_framebuffer_to_ss_effects(rb, using_ssil, using_ssr);
 	}
@@ -3710,14 +3722,8 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 
 		RID sssh;
 		if (rb_data.is_valid()) {
-			if (rb_data->ss_effects_data.sssh.half_size) {
-				if (rb->has_texture(RB_SCOPE_SSSH, RB_FINAL)) {
-					sssh = rb->get_texture(RB_SCOPE_SSSH, RB_FINAL);
-				}
-			} else {
-				if (rb->has_texture(RB_SCOPE_SSSH, RB_SSSH)) {
-					sssh = rb->get_texture(RB_SCOPE_SSSH, RB_SSSH);
-				}
+			if (rb->has_texture(RB_SCOPE_SSSH, RB_SSSH)) {
+				sssh = rb->get_texture(RB_SCOPE_SSSH, RB_SSSH);
 			}
 		}
 
@@ -3728,17 +3734,6 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 	{
 		RD::Uniform u;
 		u.binding = 38;
-		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
-
-		RID sssh_mip_level = (rb_data.is_valid() && !rb_data->ss_effects_data.sssh.half_size && rb->has_texture(RB_SCOPE_SSSH, RB_MIP_LEVEL)) ? rb->get_texture(RB_SCOPE_SSSH, RB_MIP_LEVEL) : RID();
-		RID texture = sssh_mip_level.is_valid() ? sssh_mip_level : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
-		u.append_id(texture);
-		uniforms.push_back(u);
-	}
-
-	{
-		RD::Uniform u;
-		u.binding = 39;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 
 		RID sssh_mip_level = (rb_data.is_valid() && rb->has_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG)) ? rb->get_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG) : RID();

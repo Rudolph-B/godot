@@ -71,6 +71,9 @@ public:
 	virtual void light_directional_set_sky_mode(RID p_light, RS::LightDirectionalSkyMode p_mode) = 0;
 	virtual RS::LightDirectionalSkyMode light_directional_get_sky_mode(RID p_light) const = 0;
 
+	virtual void light_directional_set_screen_space_shadows(RID p_light, bool p_enable) = 0;
+	virtual bool light_directional_get_screen_space_shadows(RID p_light) const = 0;
+
 	virtual RS::LightDirectionalShadowMode light_directional_get_shadow_mode(RID p_light) = 0;
 	virtual RS::LightOmniShadowMode light_omni_get_shadow_mode(RID p_light) = 0;
 

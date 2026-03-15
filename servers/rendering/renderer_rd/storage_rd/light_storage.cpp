@@ -390,6 +390,20 @@ RS::LightDirectionalSkyMode LightStorage::light_directional_get_sky_mode(RID p_l
 	return light->directional_sky_mode;
 }
 
+void LightStorage::light_directional_set_screen_space_shadows(RID p_light, bool p_enable) {
+	Light *light = light_owner.get_or_null(p_light);
+	ERR_FAIL_NULL(light);
+
+	light->directional_use_screen_space_shadows = p_enable;
+}
+
+bool LightStorage::light_directional_get_screen_space_shadows(RID p_light) const {
+	const Light *light = light_owner.get_or_null(p_light);
+	ERR_FAIL_NULL_V(light, true);
+
+	return light->directional_use_screen_space_shadows;
+}
+
 RS::LightDirectionalShadowMode LightStorage::light_directional_get_shadow_mode(RID p_light) {
 	const Light *light = light_owner.get_or_null(p_light);
 	ERR_FAIL_NULL_V(light, RS::LIGHT_DIRECTIONAL_SHADOW_ORTHOGONAL);

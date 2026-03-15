@@ -338,6 +338,9 @@ public:
 	virtual void light_directional_set_sky_mode(RID p_light, RS::LightDirectionalSkyMode p_mode) override;
 	virtual RS::LightDirectionalSkyMode light_directional_get_sky_mode(RID p_light) const override;
 
+	virtual void light_directional_set_screen_space_shadows(RID p_light, bool p_enable) override {}
+	virtual bool light_directional_get_screen_space_shadows(RID p_light) const override { return false; }
+
 	virtual RS::LightDirectionalShadowMode light_directional_get_shadow_mode(RID p_light) override;
 	virtual RS::LightOmniShadowMode light_omni_get_shadow_mode(RID p_light) override;
 	virtual RS::LightType light_get_type(RID p_light) const override {

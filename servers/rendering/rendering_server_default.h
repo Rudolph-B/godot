@@ -468,6 +468,7 @@ public:
 	FUNC2(light_directional_set_shadow_mode, RID, LightDirectionalShadowMode)
 	FUNC2(light_directional_set_blend_splits, RID, bool)
 	FUNC2(light_directional_set_sky_mode, RID, LightDirectionalSkyMode)
+	FUNC2(light_directional_set_screen_space_shadows, RID, bool)
 
 	/* PROBE API */
 

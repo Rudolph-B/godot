@@ -80,6 +80,7 @@ private:
 		RS::LightDirectionalShadowMode directional_shadow_mode = RS::LIGHT_DIRECTIONAL_SHADOW_ORTHOGONAL;
 		bool directional_blend_splits = false;
 		RS::LightDirectionalSkyMode directional_sky_mode = RS::LIGHT_DIRECTIONAL_SKY_MODE_LIGHT_AND_SKY;
+		bool directional_use_screen_space_shadows = true;
 		uint64_t version = 0;
 
 		Dependency dependency;
@@ -506,6 +507,9 @@ public:
 	virtual bool light_directional_get_blend_splits(RID p_light) const override;
 	virtual void light_directional_set_sky_mode(RID p_light, RS::LightDirectionalSkyMode p_mode) override;
 	virtual RS::LightDirectionalSkyMode light_directional_get_sky_mode(RID p_light) const override;
+
+	virtual void light_directional_set_screen_space_shadows(RID p_light, bool p_enable) override;
+	virtual bool light_directional_get_screen_space_shadows(RID p_light) const override;
 
 	virtual RS::LightDirectionalShadowMode light_directional_get_shadow_mode(RID p_light) override;
 	virtual RS::LightOmniShadowMode light_omni_get_shadow_mode(RID p_light) override;
