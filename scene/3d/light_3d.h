@@ -179,6 +179,7 @@ private:
 	bool blend_splits;
 	ShadowMode shadow_mode;
 	SkyMode sky_mode = SKY_MODE_LIGHT_AND_SKY;
+	bool use_screen_space_shadows = true;
 
 protected:
 	static void _bind_methods();
@@ -193,6 +194,9 @@ public:
 
 	void set_sky_mode(SkyMode p_mode);
 	SkyMode get_sky_mode() const;
+
+	void set_use_screen_space_shadows(bool p_enable);
+	bool is_using_screen_space_shadows() const;
 
 	DirectionalLight3D();
 };
