@@ -2209,7 +2209,7 @@ void fragment_shader(in SceneData scene_data) {
 			float ssr_mip_level = 0.0;
 
 			if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_DEBUG_SSSH)) {
-				// Alpha is premultiplied.
+				// Shows first SSSH light's debug data (slot 0).
 #ifdef USE_MULTIVIEW
 				vec4 sssh = textureLod(sampler2DArray(sssh_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), 0.0);
 #else
@@ -2321,11 +2321,18 @@ void fragment_shader(in SceneData scene_data) {
 			// Only process the first light's shadow for vertex lighting.
 			for (uint i = 0; i < 1; i++) {
 #else
+		uint sssh_slot = 0;
 		for (uint i = 0; i < 8; i++) {
 			if (i >= scene_data.directional_light_count) {
 				break;
 			}
 #endif
+
+				// Capture and advance SSSH slot before any continue.
+				uint current_sssh_slot = sssh_slot;
+				if (directional_lights.data[i].sssh_enabled != 0) {
+					sssh_slot++;
+				}
 
 				if (!bool(directional_lights.data[i].mask & instances.data[instance_index].layer_mask)) {
 					continue; //not masked
@@ -2542,13 +2549,13 @@ void fragment_shader(in SceneData scene_data) {
 				} // shadows
 
 				//process sssh
-				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSSH)) {
+				if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSSH) && directional_lights.data[i].sssh_enabled != 0u) {
 #ifdef USE_MULTIVIEW
-					float ss_shadow = textureLod(sampler2DArray(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), 0.0).r;
+					float sssh_layer = float(current_sssh_slot * 2u + uint(ViewIndex));
 #else
-				float ss_shadow = textureLod(sampler2D(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, 0.0).r;
+				float sssh_layer = float(current_sssh_slot);
 #endif // USE_MULTIVIEW
-
+					float ss_shadow = textureLod(sampler2DArray(sssh_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, sssh_layer), 0.0).r;
 					shadow = min(ss_shadow, shadow);
 				}
 

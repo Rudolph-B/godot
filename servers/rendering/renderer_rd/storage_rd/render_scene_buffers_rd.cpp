@@ -434,6 +434,9 @@ RID RenderSceneBuffersRD::get_texture_slice_view(const StringName &p_context, co
 	NamedTexture &named_texture = named_textures[key];
 	ERR_FAIL_COND_V(named_texture.texture.is_null(), RID());
 
+	if (p_layer >= named_texture.format.array_layers) {
+		print_line("OOPS");
+	}
 	// check if we're in bounds
 	ERR_FAIL_UNSIGNED_INDEX_V(p_layer, named_texture.format.array_layers, RID());
 	ERR_FAIL_COND_V(p_layers == 0, RID());

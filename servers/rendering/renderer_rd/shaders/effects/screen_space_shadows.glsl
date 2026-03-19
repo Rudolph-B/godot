@@ -89,6 +89,11 @@ void main() {
 	vec2 group_start = grid_offset + light_xy + group_dir * group_id;
 	vec2 group_end = mix(light.xy, group_start, max((axis_start - WAVE_SIZE), 0.0) / axis_start);
 
+	if (any(greaterThanEqual(group_start, params.screen_size)) &&
+			any(greaterThanEqual(group_end, params.screen_size))) {
+		return;
+	}
+
 	// swap
 	if (reverse_direction) {
 		vec2 temp = group_start;
@@ -101,10 +106,6 @@ void main() {
 	vec2 pixel_pos = mix(group_start, group_end, float(thread_id) / WAVE_SIZE);
 
 	float pixel_distance = !reverse_direction ? axis_start - thread_id : axis_start + thread_id;
-	//	shadow = mix(1.0, shadow, directional_lights.data[i].shadow_opacity);
-	if (any(greaterThanEqual(pixel_pos, params.screen_size))) {
-		return;
-	}
 
 	const float direction = reverse_direction ? 1.0 : -1.0;
 

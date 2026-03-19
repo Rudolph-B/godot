@@ -346,7 +346,7 @@ SSEffects::SSEffects() {
 	{
 		{
 			Vector<String> sssh_modes;
-			sssh_modes.push_back("\n#define MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS " + itos(RendererSceneRender::MAX_DIRECTIONAL_LIGHTS) + "\n");
+			sssh_modes.push_back("\n");
 
 			sssh.sssh_shader.initialize(sssh_modes);
 			sssh.sssh_shader_version = sssh.sssh_shader.version_create();
@@ -1769,15 +1769,20 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 /* Screen Space Shadows */
 
 void SSEffects::sssh_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const RD::DataFormat p_color_format, uint32_t p_contact_shadow_count) {
+	if (p_sssh_buffers.light_count != p_contact_shadow_count) {
+		p_render_buffers->clear_context(RB_SCOPE_SSSH);
+	}
+
 	p_sssh_buffers.size = p_render_buffers->get_internal_size();
+	p_sssh_buffers.light_count = p_contact_shadow_count;
 
 	uint32_t view_count = p_render_buffers->get_view_count();
 
 	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH, RD::DATA_FORMAT_R8_UNORM, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, p_contact_shadow_count * view_count);
-	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, p_contact_shadow_count * view_count);
+	p_render_buffers->create_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sssh_buffers.size, view_count);
 }
 
-void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, RendererRD::CopyEffects &p_copy_effects) {
+void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSSHRenderBuffers &p_sssh_buffers, const SSSHSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, RendererRD::CopyEffects &p_copy_effects) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
@@ -1878,10 +1883,11 @@ void SSEffects::screen_space_shadows(Ref<RenderSceneBuffersRD> p_render_buffers,
 			(void)linear_light_z;
 		}
 
-		RID nearest_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+		RID nearest_sampler = material_storage->sampler_rd_get_default(RSE::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
 
 		RID depth_buffer = p_render_buffers->get_depth_texture(v);
-		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH, v, 0);
+		uint32_t layer = p_light_index * view_count + v;
+		RID sssh_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH, layer, 0);
 		RID sssh_debug = p_render_buffers->get_texture_slice(RB_SCOPE_SSSH, RB_SSSH_DEBUG, v, 0);
 
 		RD::Uniform u_depth_buffer(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, depth_buffer });

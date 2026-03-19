@@ -1521,7 +1521,7 @@ void RenderForwardClustered::_process_sssh(Ref<RenderSceneBuffersRD> p_render_bu
 		Transform3D light_transform = light_storage->light_instance_get_base_transform(light_instance);
 		Vector3 light_direction = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 0, 1))).normalized();
 
-		ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, light_direction, *copy_effects);
+		ss_effects->screen_space_shadows(p_render_buffers, rb_data->ss_effects_data.sssh, settings, p_projections, light_direction, i, *copy_effects);
 	}
 }
 
@@ -3735,7 +3735,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 			}
 		}
 
-		RID texture = sssh.is_valid() ? sssh : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID texture = sssh.is_valid() ? sssh : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3744,8 +3744,8 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		u.binding = 38;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 
-		RID sssh_mip_level = (rb_data.is_valid() && rb->has_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG)) ? rb->get_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG) : RID();
-		RID texture = sssh_mip_level.is_valid() ? sssh_mip_level : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID sssh_debug = (rb_data.is_valid() && rb->has_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG)) ? rb->get_texture(RB_SCOPE_SSSH, RB_SSSH_DEBUG) : RID();
+		RID texture = sssh_debug.is_valid() ? sssh_debug : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
