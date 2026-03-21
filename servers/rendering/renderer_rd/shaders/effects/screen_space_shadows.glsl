@@ -41,12 +41,6 @@ params;
 
 shared float DepthData[READ_COUNT * WAVE_SIZE];
 
-float linearize_depth(float depth) {
-	vec4 pos = vec4(0.0, 0.0, depth, 1.0);
-	pos = scene_data.inv_projection[params.view_index] * pos;
-	return pos.z / pos.w;
-}
-
 void main() {
 	ivec2 group_offset = ivec2(gl_WorkGroupID.yz);
 	int group_id = int(gl_WorkGroupID.x);
@@ -105,57 +99,54 @@ void main() {
 	vec2 group_delta = group_end - group_start;
 	vec2 pixel_pos = mix(group_start, group_end, float(thread_id) / WAVE_SIZE);
 
-	float pixel_distance = !reverse_direction ? axis_start - thread_id : axis_start + thread_id;
+	// Should I keep the minux 1?
+	float pixel_distance = !reverse_direction ? axis_start - thread_id : axis_start - (WAVE_SIZE - 1) + thread_id;
 
 	const float direction = reverse_direction ? 1.0 : -1.0;
 
+	float sampling_depth[READ_COUNT];
 	float shadowing_depth[READ_COUNT];
 	float sample_distance[READ_COUNT];
 	float depth_thickness_scale[READ_COUNT];
+	const float z_sign = -1.0;
+	const float near = 1.0;
+	const float far = 0.0;
+	const float surface_thickness = 0.005;
 
 	vec2 xy_offset = vec2(0, 0);
 	for (int i = 0; i < READ_COUNT; i++) {
-		shadowing_depth[i] = texelFetch(depth_buffer, ivec2(pixel_pos + xy_offset), 0).x;
-		sample_distance[i] = pixel_distance - (WAVE_SIZE * i) * direction;
+		float depth = texelFetch(depth_buffer, ivec2(pixel_pos + xy_offset), 0).x;
+		shadowing_depth[i] = depth;
+		sampling_depth[i] = depth;
+		sample_distance[i] = pixel_distance + (WAVE_SIZE * i) * direction;
+		depth_thickness_scale[i] = abs(far - depth);
+
+		float stored_depth = (shadowing_depth[i] - light.z) / sample_distance[i];
+		if (i != 0) {
+			stored_depth = sample_distance[i] > 0.0 ? stored_depth : 1e10;
+		}
 
 		int idx = (i * WAVE_SIZE) + thread_id;
-		DepthData[idx] = linearize_depth(shadowing_depth[i]);
+		DepthData[idx] = stored_depth;
 		xy_offset += group_delta;
 	}
 
 	memoryBarrierShared();
 	barrier();
 
-	vec3 screen_pos;
-	screen_pos.xy = pixel_pos;
-	screen_pos.z = shadowing_depth[0];
-
-	vec3 screen_dir = light.w * normalize(light.xyz - screen_pos.xyz);
-
-	if (x_major_axis) {
-		screen_dir = screen_dir / abs(screen_dir.y);
-	} else {
-		screen_dir = screen_dir / abs(screen_dir.x);
-	}
-
-	float ref_depth = screen_pos.z;
 	float shadow = 1.0;
+	float depth_scale = min(sample_distance[0] + direction, 1.0 / surface_thickness) * sample_distance[0] / depth_thickness_scale[0];
 
-	for (int i = 1; i < 40; i++) {
-		ivec2 xy_offset = ivec2(screen_dir.xy * i);
-		float depth_offset = screen_dir.z * i;
+	float start_depth = sampling_depth[0];
+	start_depth = (start_depth - light.z) / sample_distance[0];
+	start_depth = start_depth * depth_scale - z_sign;
+	int sample_index = thread_id + 1;
 
-		float expected_depth = linearize_depth(ref_depth + depth_offset);
-		//		float measured_depth = linearize_depth(texelFetch(source_hiz, ivec2(pixel_pos + xy_offset), 0).x);
-		float measured_depth = DepthData[thread_id + i];
+	for (int i = 0; i < SAMPLE_COUNT; i++) {
+		float depth_delta = abs(start_depth - DepthData[sample_index + i] * depth_scale);
 
-		float diff = measured_depth - expected_depth;
-
-		// Break if diff is half of depth_tolerance
-		if (diff > 0.1 && diff < params.depth_tolerance) {
-			shadow = 0.0;
-			break;
-		}
+		// We want to find the distance of the sample that is closest to the reference depth
+		shadow = min(shadow, depth_delta);
 	}
 
 	ivec2 ipixel_pos = ivec2(pixel_pos);
@@ -165,7 +156,7 @@ void main() {
 	switch (params.debug_mode) {
 		case 5:
 
-			float dista = clamp(abs(1) / 100000.0, 0.0, 1.0);
+			float dista = clamp(sample_distance[params.max_steps % SAMPLE_COUNT] / 100, 0.0, 1.0);
 			imageStore(output_debug, ipixel_pos, vec4(dista, dista, dista, 1.0));
 			break;
 
@@ -178,26 +169,16 @@ void main() {
 			imageStore(output_debug, ipixel_pos, vec4(shadow, shadow, shadow, shadow));
 			break;
 		case 2:
-			// Individual
-			float test_depth2 = abs(linearize_depth(texelFetch(depth_buffer, ivec2(pixel_pos + screen_dir.xy * params.max_steps), 0).x));
-			test_depth2 -= abs(DepthData[thread_id + params.max_steps]);
-			test_depth2 = abs(test_depth2);
-			if (test_depth2 < 0.001) {
-				test_depth2 = 1.0;
+			float test = 0.2;
+			if (light.w < 0.0f) {
+				test = 0.8;
 			}
-			//			test_depth2 = min(test_depth2, abs(linearize_depth(ref_depth) / 200.0));
-			vec4 depth_debug2 = vec4(test_depth2, test_depth2, test_depth2, 1.0);
-			imageStore(output_debug, ipixel_pos, depth_debug2);
+			imageStore(output_debug, ipixel_pos, vec4(test, test, test, 1.0));
 			break;
 		case 1:
-			// Shared
-			float test_depth1 = abs(linearize_depth(texelFetch(depth_buffer, ivec2(pixel_pos + screen_dir.xy * params.max_steps), 0).x)) / 200.0;
-			vec4 depth_debug1 = vec4(test_depth1, test_depth1, test_depth1, 1.0);
-			imageStore(output_debug, ipixel_pos, depth_debug1);
-			break;
 		case 0:
 		default:
-			float test_depth = abs(DepthData[thread_id + params.max_steps]) / 200.0;
+			float test_depth = DepthData[thread_id + params.max_steps];
 			vec4 depth_debug = vec4(test_depth, test_depth, test_depth, 1.0);
 			imageStore(output_debug, ipixel_pos, depth_debug);
 			break;
