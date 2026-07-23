@@ -1784,9 +1784,12 @@ void SSEffects::sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 		tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT;
 
 		p_render_buffers->create_texture_from_format(RB_SCOPE_SSCS, RB_SSCS, tf);
-
+		p_render_buffers->create_texture(RB_SCOPE_SSCS, RB_SSCS_DEBUG, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_sscs_buffers.size, 1);
 		{
+			RID debug = p_render_buffers->get_texture(RB_SCOPE_SSCS, RB_SSCS_DEBUG);
 			RID sscs_texture = p_render_buffers->get_texture(RB_SCOPE_SSCS, RB_SSCS);
+
+			RD::get_singleton()->texture_clear(debug, Color(1.0, 1.0, 1.0, 1.0), 0, 1, 0, view_count);
 			RD::get_singleton()->texture_clear(sscs_texture, Color(1, 0, 0, 0.0), 0, 1, 0, view_count * p_sscs_buffers.light_count);
 		}
 	}
@@ -1859,6 +1862,8 @@ void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_
 		ScreenSpaceContactShadowsPushConstant push_constant;
 		push_constant.screen_size[0] = p_sscs_buffers.size.width;
 		push_constant.screen_size[1] = p_sscs_buffers.size.height;
+		push_constant.debug_enabled = p_settings.debug_enabled;
+		push_constant.debug_mode = p_settings.debug_mode;
 		push_constant.bilinear_threshold = p_settings.bilinear_threshold;
 		push_constant.shadow_contrast = p_settings.shadow_contrast;
 		push_constant.surface_thickness = p_settings.surface_thickness;
@@ -1875,11 +1880,13 @@ void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_
 		RID depth_buffer = p_render_buffers->get_depth_texture(v);
 		uint32_t layer = p_light_index * view_count + v;
 		RID sscs_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSCS, RB_SSCS, layer, 0);
+		RID sscs_debug = p_render_buffers->get_texture_slice(RB_SCOPE_SSCS, RB_SSCS_DEBUG, 0, 0);
 
 		RD::Uniform u_depth_buffer(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ sscs.border_sampler, depth_buffer });
 		RD::Uniform u_sscs(RD::UNIFORM_TYPE_IMAGE, 1, sscs_texture);
+		RD::Uniform u_sscs_debug(RD::UNIFORM_TYPE_IMAGE, 2, sscs_debug);
 
-		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(sscs_shader, 0, u_depth_buffer, u_sscs), 0);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(sscs_shader, 0, u_depth_buffer, u_sscs, u_sscs_debug), 0);
 
 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
 		RD::get_singleton()->compute_list_dispatch(compute_list, wave_size, bound_size.x, bound_size.y);

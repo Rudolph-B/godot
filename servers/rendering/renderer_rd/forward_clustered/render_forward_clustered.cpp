@@ -763,6 +763,7 @@ uint32_t RenderForwardClustered::_setup_environment(const RenderDataRD *p_render
 			ss_flags |= environment_get_ssil_enabled(p_render_data->environment) ? SCREEN_SPACE_EFFECTS_FLAGS_USE_SSIL : 0;
 			ss_flags |= environment_get_ssr_enabled(p_render_data->environment) ? SCREEN_SPACE_EFFECTS_FLAGS_USE_SSR : 0;
 			ss_flags |= environment_get_sscs_enabled(p_render_data->environment) ? SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS : 0;
+			ss_flags |= environment_get_sscs_debug_enabled(p_render_data->environment) ? SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS_DEBUG : 0;
 
 			if (rd.is_valid()) {
 				Ref<RenderBufferDataForwardClustered> rb_data;
@@ -1520,6 +1521,8 @@ void RenderForwardClustered::_process_sscs(Ref<RenderSceneBuffersRD> p_render_bu
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
 	RendererRD::SSEffects::SSCSSettings settings;
+	settings.debug_enabled = environment_get_sscs_debug_enabled(p_environment);
+	settings.debug_mode = environment_get_sscs_debug_type(p_environment);
 	settings.quality = environment_get_sscs_sample_count(p_environment);
 	settings.bilinear_threshold = environment_get_sscs_bilinear_threshold(p_environment);
 	settings.shadow_contrast = environment_get_sscs_shadow_contrast(p_environment);
@@ -3833,6 +3836,16 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		}
 
 		RID texture = sscs.is_valid() ? sscs : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK);
+		u.append_id(texture);
+		uniforms.push_back(u);
+	}
+	{
+		RD::Uniform u;
+		u.binding = 38;
+		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+
+		RID sscs_debug = (rb_data.is_valid() && rb->has_texture(RB_SCOPE_SSCS, RB_SSCS_DEBUG)) ? rb->get_texture(RB_SCOPE_SSCS, RB_SSCS_DEBUG) : RID();
+		RID texture = sscs_debug.is_valid() ? sscs_debug : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}

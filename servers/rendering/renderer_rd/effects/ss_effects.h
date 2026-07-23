@@ -70,6 +70,7 @@
 #define RB_MIP_LEVEL SNAME("mip_level")
 
 #define RB_SSCS SNAME("sscs")
+#define RB_SSCS_DEBUG SNAME("sscs_debug")
 
 class RenderSceneBuffersRD;
 
@@ -175,6 +176,8 @@ public:
 		float shadow_contrast = 2.0f;
 		float surface_thickness = 0.01f;
 		bool ignore_edge_pixels = false;
+		bool debug_enabled = false;
+		int debug_mode = 0;
 		float depth_begin = 0.0f;
 		float depth_end = 1.0f;
 	};
@@ -541,6 +544,8 @@ private:
 		int32_t screen_size[2];
 		int32_t light_offset[2];
 		float light_coordinates[4];
+		int32_t debug_enabled = 0;
+		uint32_t debug_mode = 0;
 		float bilinear_threshold;
 		float shadow_contrast;
 		float surface_thickness;

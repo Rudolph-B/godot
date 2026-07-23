@@ -213,8 +213,10 @@ public:
 	virtual void environment_set_ssr_roughness_quality(RSE::EnvironmentSSRRoughnessQuality p_quality) = 0;
 
 	// SSCS
-	void environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, float p_depth_begin, float p_depth_end);
+	void environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, bool p_debug_enabled, int p_debug_type, float p_depth_begin, float p_depth_end);
 	bool environment_get_sscs_enabled(RID p_env) const;
+	bool environment_get_sscs_debug_enabled(RID p_env) const;
+	int environment_get_sscs_debug_type(RID p_env) const;
 	RSE::EnvironmentSSCSSampleCount environment_get_sscs_sample_count(RID p_env) const;
 	float environment_get_sscs_bilinear_threshold(RID p_env) const;
 	float environment_get_sscs_shadow_contrast(RID p_env) const;

@@ -2223,6 +2223,30 @@ void fragment_shader(in SceneData scene_data) {
 			// Alpha is premultiplied.
 			indirect_specular_light = indirect_specular_light * (1.0 - ssr.a) + ssr.rgb;
 		}
+
+		//process sscs debug
+		if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSCS)) {
+			float ssr_mip_level = 0.0;
+
+			if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_DEBUG_SSCS)) {
+				// Shows first SSCS light's debug data (slot 0).
+#ifdef USE_MULTIVIEW
+				vec4 sscs = textureLod(sampler2DArray(sscs_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), 0.0);
+#else
+				vec4 sscs = textureLod(sampler2D(sscs_debug, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, 0.0);
+#endif // USE_MULTIVIEW
+
+				if (sscs.a > 0.0) {
+#ifdef MODE_SEPARATE_SPECULAR
+					diffuse_buffer = sscs;
+					specular_buffer = vec4(0.0);
+#else
+					frag_color = sscs;
+#endif // MODE_SEPARATE_SPECULAR
+					return;
+				}
+			}
+		}
 	}
 #endif // AMBIENT_LIGHT_DISABLED
 

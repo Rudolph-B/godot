@@ -136,6 +136,8 @@ private:
 
 	// SSCS
 	bool sscs_enabled = false;
+	bool sscs_debug_enabled = false;
+	int sscs_debug_type = false;
 	SSCSSampleCount sscs_sample_count = SSCS_SAMPLE_COUNT_191;
 	float sscs_bilinear_threshold = 0.02f;
 	float sscs_shadow_contrast = 2.0f;
@@ -311,6 +313,10 @@ public:
 	// SSCS
 	void set_sscs_enabled(bool p_enabled);
 	bool is_sscs_enabled() const;
+	void set_sscs_debug_enabled(bool p_enabled);
+	bool is_sscs_debug_enabled() const;
+	void set_sscs_debug_type(int p_steps);
+	int get_sscs_debug_type() const;
 	void set_sscs_sample_count(SSCSSampleCount p_quality);
 	SSCSSampleCount get_sscs_sample_count() const;
 	void set_sscs_bilinear_threshold(float p_bilinear_threshold);
