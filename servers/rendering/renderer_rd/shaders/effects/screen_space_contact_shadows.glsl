@@ -22,6 +22,8 @@ layout(push_constant, std430) uniform Params {
 	int ignore_edge_pixels;
 	float depth_begin;
 	float depth_end;
+	float opacity;
+	float blur;
 }
 params;
 
@@ -39,6 +41,12 @@ params;
 #define Z_SIGN -1.0
 
 shared float DepthData[READ_COUNT * WAVE_SIZE];
+
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+float interleaved_gradient_noise(vec2 screen_pos) {
+	const vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+	return fract(magic.z * fract(dot(screen_pos, magic.xy)));
+}
 
 void organise_groups(vec4 light, in float converging, int group_id, ivec2 group_offset, int thread_id, out bool x_major_axis, out vec2 group_start, out vec2 group_end, out vec2 group_delta, out float pixel_distance, out vec2 pixel_pos) {
 	vec2 light_xy = floor(light.xy) + 0.5;
@@ -199,9 +207,13 @@ void main() {
 		start_depth = (start_depth - light.z) / sample_distance[0];
 		start_depth = start_depth * depth_scale - Z_SIGN;
 	} else {
-		depth_scale = (1.0 / params.surface_thickness) / depth_thickness_scale[0];
+		// In orthogonal case it no longer makes sense to use sample distance in depth_scaling
+		// 10x is used because it looked best visually
+		depth_scale = (10.0 / params.surface_thickness) / depth_thickness_scale[0];
 		start_depth = (start_depth - light.z * sample_distance[0]) * depth_scale - Z_SIGN;
 	}
+
+	start_depth += params.blur * interleaved_gradient_noise(vec2(write_xy));
 
 	int sample_index = thread_id + 1;
 	vec4 shadow_value = vec4(1.0);
@@ -232,6 +244,7 @@ void main() {
 	// Average the 4 buckets, then take the harder of hard_shadow and averaged result
 	float shadow = min(hard_shadow, dot(shadow_value, vec4(0.25)));
 	shadow = mix(1.0, shadow, depth_fade);
+	shadow = mix(1.0, shadow, params.opacity);
 	imageStore(output_shadow, write_xy, vec4(shadow, 0.0, 0.0, 0.0));
 
 	float debug_result = shadow;

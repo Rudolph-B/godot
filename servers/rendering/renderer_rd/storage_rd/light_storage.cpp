@@ -163,6 +163,9 @@ void LightStorage::_light_initialize(RID p_light, RSE::LightType p_type) {
 	light.param[RSE::LIGHT_PARAM_SHADOW_PANCAKE_SIZE] = 20.0;
 	light.param[RSE::LIGHT_PARAM_TRANSMITTANCE_BIAS] = 0.05;
 	light.param[RSE::LIGHT_PARAM_INTENSITY] = p_type == RSE::LIGHT_DIRECTIONAL ? 100000.0 : 1000.0;
+	light.param[RSE::LIGHT_PARAM_CONTACT_SHADOW_ALLOW] = 1.0;
+	light.param[RSE::LIGHT_PARAM_CONTACT_SHADOW_OPACITY] = 1.0;
+	light.param[RSE::LIGHT_PARAM_CONTACT_SHADOW_BLUR] = 1.0;
 
 	light_owner.initialize_rid(p_light, light);
 }
@@ -419,20 +422,6 @@ RSE::LightDirectionalSkyMode LightStorage::light_directional_get_sky_mode(RID p_
 	ERR_FAIL_NULL_V(light, RSE::LIGHT_DIRECTIONAL_SKY_MODE_LIGHT_AND_SKY);
 
 	return light->directional_sky_mode;
-}
-
-void LightStorage::light_directional_set_allow_contact_shadows(RID p_light, bool p_enable) {
-	Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL(light);
-
-	light->directional_allow_contact_shadows = p_enable;
-}
-
-bool LightStorage::light_directional_get_allow_contact_shadows(RID p_light) const {
-	const Light *light = light_owner.get_or_null(p_light);
-	ERR_FAIL_NULL_V(light, true);
-
-	return light->directional_allow_contact_shadows;
 }
 
 RSE::LightDirectionalShadowMode LightStorage::light_directional_get_shadow_mode(RID p_light) {
@@ -796,7 +785,7 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				light_data.shadow_opacity = (p_using_shadows && light->shadow)
 						? light->param[RSE::LIGHT_PARAM_SHADOW_OPACITY]
 						: 0.0;
-				light_data.sscs_index = light->directional_allow_contact_shadows ? directional_contact_shadows_count++ : 0xffffffff;
+				light_data.sscs_index = light->param[RSE::LIGHT_PARAM_CONTACT_SHADOW_ALLOW] > 0.0 ? directional_contact_shadows_count++ : 0xffffffff;
 
 				float angular_diameter = light->param[RSE::LIGHT_PARAM_SIZE];
 				if (angular_diameter > 0.0) {

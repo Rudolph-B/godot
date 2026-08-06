@@ -183,7 +183,7 @@ public:
 	};
 
 	void sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const RD::DataFormat p_color_format, uint32_t p_contact_shadow_count);
-	void screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const SSCSSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, RendererRD::CopyEffects &p_copy_effects);
+	void screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const SSCSSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, float p_opacity, float p_blur, RendererRD::CopyEffects &p_copy_effects);
 
 private:
 	/* Settings */
@@ -552,6 +552,8 @@ private:
 		uint32_t ignore_edge_pixels;
 		float depth_begin;
 		float depth_end;
+		float opacity;
+		float blur;
 	};
 
 	/* Subsurface scattering */

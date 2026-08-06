@@ -300,7 +300,7 @@
 			If [code]true[/code], screen-space contact shadows are enabled. These catch small-scale shadows that shadow maps miss, such as foliage, crevices, and the contact points where objects meet surfaces. Contact shadows are also cast by objects that have their [member GeometryInstance3D.cast_shadow] property set to [constant GeometryInstance3D.SHADOW_CASTING_SETTING_OFF], which can be useful for performance reasons.
 			[b]Note:[/b] Only objects visible on screen can cast screen-space contact shadows. Objects outside the viewport, occluded by other geometry, or using the [member GeometryInstance3D.cast_shadow] property set to [constant GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY] will not contribute.
 			[b]Note:[/b] Screen-space contact shadows are only supported in the Forward+ rendering method, not Mobile or Compatibility.
-			[b]Note:[/b] Screen-space contact shadows only affect [DirectionalLight3D] nodes that have shadows enabled. The [DirectionalLight3D] node must also have [member DirectionalLight3D.directional_shadow_allow_contact_shadows] set to [code]true[/code].
+			[b]Note:[/b] Screen-space contact shadows only affect [DirectionalLight3D] nodes that have shadows enabled. The [DirectionalLight3D] node must also have [member Light3D.shadow_contact_shadows_allow] set to [code]true[/code].
 		</member>
 		<member name="sscs_ignore_edge_pixels" type="bool" setter="set_sscs_ignore_edge_pixels" getter="get_sscs_ignore_edge_pixels" default="false">
 			If [code]true[/code], pixels at depth discontinuities (object silhouettes and surface edges) are excluded from casting contact shadows. This can remove artifacts in certain cases at the cost of shadow edge quality.

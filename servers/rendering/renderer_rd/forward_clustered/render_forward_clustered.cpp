@@ -1540,14 +1540,17 @@ void RenderForwardClustered::_process_sscs(Ref<RenderSceneBuffersRD> p_render_bu
 	for (uint32_t i = 0; i < p_contact_shadows.size(); i++) {
 		RID light_instance = p_render_shadows[p_contact_shadows[i]].light;
 		RID base = light_storage->light_instance_get_base_light(light_instance);
-		if (!light_storage->light_directional_get_allow_contact_shadows(base)) {
+		if (light_storage->light_get_param(base, RSE::LIGHT_PARAM_CONTACT_SHADOW_ALLOW) <= 0.0) {
 			continue;
 		}
 
 		Transform3D light_transform = light_storage->light_instance_get_base_transform(light_instance);
 		Vector3 light_direction = inverse_transform.basis.xform(light_transform.basis.xform(Vector3(0, 0, 1))).normalized();
 
-		ss_effects->screen_space_contact_shadows(p_render_buffers, rb_data->ss_effects_data.sscs, settings, p_projections, light_direction, i, *copy_effects);
+		float opacity = light_storage->light_get_param(base, RSE::LIGHT_PARAM_CONTACT_SHADOW_OPACITY);
+		float blur = light_storage->light_get_param(base, RSE::LIGHT_PARAM_CONTACT_SHADOW_BLUR);
+
+		ss_effects->screen_space_contact_shadows(p_render_buffers, rb_data->ss_effects_data.sscs, settings, p_projections, light_direction, i, opacity, blur, *copy_effects);
 	}
 }
 
@@ -1599,7 +1602,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 
 				if (rb_data.is_valid() && ss_effects) {
 					// Add contact shadows to be processed
-					if (p_render_data->render_shadows[i].pass == 0 && light_storage->light_directional_get_allow_contact_shadows(base)) {
+					if (p_render_data->render_shadows[i].pass == 0 && light_storage->light_get_param(base, RSE::LIGHT_PARAM_CONTACT_SHADOW_ALLOW) > 0.0) {
 						// Contact shadows only need one pass
 						p_render_data->contact_shadows.push_back(i);
 					}
@@ -3849,7 +3852,6 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
-
 	return UniformSetCacheRD::get_singleton()->get_cache_vec(scene_shader.get_default_shader_rd(is_multiview), RENDER_PASS_UNIFORM_SET, uniforms);
 }
 
