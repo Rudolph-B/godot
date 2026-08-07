@@ -278,6 +278,8 @@ public:
 	virtual float environment_get_sscs_shadow_contrast(RID p_env) const = 0;
 	virtual float environment_get_sscs_surface_thickness(RID p_env) const = 0;
 	virtual bool environment_get_sscs_ignore_edge_pixels(RID p_env) const = 0;
+	virtual float environment_get_sscs_depth_begin(RID p_env) const = 0;
+	virtual float environment_get_sscs_depth_end(RID p_env) const = 0;
 
 	// SSAO
 	virtual void environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) = 0;

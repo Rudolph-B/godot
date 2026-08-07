@@ -1325,6 +1325,8 @@ public:
 	PASS1RC(float, environment_get_sscs_shadow_contrast, RID)
 	PASS1RC(float, environment_get_sscs_surface_thickness, RID)
 	PASS1RC(bool, environment_get_sscs_ignore_edge_pixels, RID)
+	PASS1RC(float, environment_get_sscs_depth_begin, RID)
+	PASS1RC(float, environment_get_sscs_depth_end, RID)
 
 	// SSAO
 	PASS10(environment_set_ssao, RID, bool, float, float, float, float, float, float, float, float)
