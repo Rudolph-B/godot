@@ -593,20 +593,12 @@ float RendererSceneRender::environment_get_ssr_depth_tolerance(RID p_env) const 
 
 // SSCS
 
-void RendererSceneRender::environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, bool p_debug_enabled, int p_debug_type, float p_depth_begin, float p_depth_end) {
-	environment_storage.environment_set_sscs(p_env, p_enable, p_quality, p_bilinear_threshold, p_shadow_contrast, p_surface_thickness, p_ignore_edge_pixels, p_debug_enabled, p_debug_type, p_depth_begin, p_depth_end);
+void RendererSceneRender::environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, float p_depth_begin, float p_depth_end) {
+	environment_storage.environment_set_sscs(p_env, p_enable, p_quality, p_bilinear_threshold, p_shadow_contrast, p_surface_thickness, p_ignore_edge_pixels, p_depth_begin, p_depth_end);
 }
 
 bool RendererSceneRender::environment_get_sscs_enabled(RID p_env) const {
 	return environment_storage.environment_get_sscs_enabled(p_env);
-}
-
-bool RendererSceneRender::environment_get_sscs_debug_enabled(RID p_env) const {
-	return environment_storage.environment_get_sscs_debug_enabled(p_env);
-}
-
-int RendererSceneRender::environment_get_sscs_debug_type(RID p_env) const {
-	return environment_storage.environment_get_sscs_debug_type(p_env);
 }
 
 RSE::EnvironmentSSCSSampleCount RendererSceneRender::environment_get_sscs_sample_count(RID p_env) const {

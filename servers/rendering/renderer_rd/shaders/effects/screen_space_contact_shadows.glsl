@@ -8,14 +8,11 @@ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform sampler2D depth_buffer;
 layout(r8, set = 0, binding = 1) uniform restrict writeonly image2D output_shadow;
-layout(rgba16f, set = 0, binding = 2) uniform restrict writeonly image2D output_debug;
 
 layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
 	ivec2 light_offset;
 	vec4 light_coordinate;
-	int debug_enabled;
-	int debug_mode;
 	float bilinear_threshold;
 	float shadow_contrast;
 	float surface_thickness;
@@ -246,33 +243,4 @@ void main() {
 	shadow = mix(1.0, shadow, depth_fade);
 	shadow = mix(1.0, shadow, params.opacity);
 	imageStore(output_shadow, write_xy, vec4(shadow, 0.0, 0.0, 0.0));
-
-	float debug_result = shadow;
-	switch (params.debug_mode) {
-		case 4: // Edge shadow
-			debug_result = is_edge ? 0.0 : 1.0;
-			break;
-		case 3: // Raw shadow
-			debug_result = shadow;
-			break;
-		case 2: // Groups
-			debug_result = fract(float(gl_WorkGroupID.x) / float(WAVE_SIZE));
-			break;
-		case 1: // Threads
-			debug_result = float(thread_id) / float(WAVE_SIZE);
-			break;
-		case 0: // Raw depth buffer
-			debug_result = sampling_depth[0];
-			break;
-		default:
-			//			debug_result = RawDepthData[thread_id + params.debug_mode * 9];
-			//			if (thread_id == 0) {
-			//				debug_result = 1;
-			//			}
-			//			if (group_id == 0) {
-			//				debug_result = 0;
-			//			}
-			break;
-	}
-	imageStore(output_debug, write_xy, vec4(debug_result, debug_result, debug_result, 1.0));
 }

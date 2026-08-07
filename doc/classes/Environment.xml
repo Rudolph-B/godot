@@ -286,10 +286,6 @@
 		<member name="sscs_bilinear_threshold" type="float" setter="set_sscs_bilinear_threshold" getter="get_sscs_bilinear_threshold" default="0.02">
 			Controls how aggressively bilinear filtering is disabled at depth edges. Lower values produce sharper shadow edges but may introduce aliasing; higher values allow more smoothing across edges, which can cause blurring at object silhouettes.
 		</member>
-		<member name="sscs_debug_enabled" type="bool" setter="set_sscs_debug_enabled" getter="is_sscs_debug_enabled" default="false">
-		</member>
-		<member name="sscs_debug_type" type="int" setter="set_sscs_debug_type" getter="get_sscs_debug_type" default="0">
-		</member>
 		<member name="sscs_depth_begin" type="float" setter="set_sscs_depth_begin" getter="get_sscs_depth_begin" default="0.0">
 			The normalized linear depth at which contact shadows begin. Surfaces closer to the camera than this value will not receive or cast contact shadows. Expressed as a fraction of the camera's far plane distance. Should be less than [member sscs_depth_end].
 		</member>

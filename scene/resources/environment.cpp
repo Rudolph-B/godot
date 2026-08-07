@@ -326,24 +326,6 @@ bool Environment::is_sscs_enabled() const {
 	return sscs_enabled;
 }
 
-void Environment::set_sscs_debug_enabled(bool p_enabled) {
-	sscs_debug_enabled = p_enabled;
-	_update_sscs();
-}
-
-bool Environment::is_sscs_debug_enabled() const {
-	return sscs_debug_enabled;
-}
-
-void Environment::set_sscs_debug_type(int p_type) {
-	sscs_debug_type = p_type;
-	_update_sscs();
-}
-
-int Environment::get_sscs_debug_type() const {
-	return sscs_debug_type;
-}
-
 void Environment::set_sscs_sample_count(SSCSSampleCount p_quality) {
 	sscs_sample_count = p_quality;
 	_update_sscs();
@@ -398,8 +380,6 @@ void Environment::_update_sscs() {
 			sscs_shadow_contrast,
 			sscs_surface_thickness,
 			sscs_ignore_edge_pixels,
-			sscs_debug_enabled,
-			sscs_debug_type,
 			sscs_depth_begin,
 			sscs_depth_end);
 }
@@ -1447,10 +1427,6 @@ void Environment::_bind_methods() {
 	// SSCS
 	ClassDB::bind_method(D_METHOD("set_sscs_enabled", "enabled"), &Environment::set_sscs_enabled);
 	ClassDB::bind_method(D_METHOD("is_sscs_enabled"), &Environment::is_sscs_enabled);
-	ClassDB::bind_method(D_METHOD("set_sscs_debug_enabled", "enabled"), &Environment::set_sscs_debug_enabled);
-	ClassDB::bind_method(D_METHOD("is_sscs_debug_enabled"), &Environment::is_sscs_debug_enabled);
-	ClassDB::bind_method(D_METHOD("set_sscs_debug_type", "max_steps"), &Environment::set_sscs_debug_type);
-	ClassDB::bind_method(D_METHOD("get_sscs_debug_type"), &Environment::get_sscs_debug_type);
 	ClassDB::bind_method(D_METHOD("set_sscs_sample_count", "quality"), &Environment::set_sscs_sample_count);
 	ClassDB::bind_method(D_METHOD("get_sscs_sample_count"), &Environment::get_sscs_sample_count);
 	ClassDB::bind_method(D_METHOD("set_sscs_bilinear_threshold", "bilinear_threshold"), &Environment::set_sscs_bilinear_threshold);
@@ -1468,8 +1444,6 @@ void Environment::_bind_methods() {
 
 	ADD_GROUP("SSCS", "sscs_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sscs_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_sscs_enabled", "is_sscs_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sscs_debug_enabled"), "set_sscs_debug_enabled", "is_sscs_debug_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "sscs_debug_type", PROPERTY_HINT_RANGE, "0,10,1"), "set_sscs_debug_type", "get_sscs_debug_type");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sscs_sample_count", PROPERTY_HINT_ENUM, "127 (Low),191 (Medium),255 (High)"), "set_sscs_sample_count", "get_sscs_sample_count");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_bilinear_threshold", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_sscs_bilinear_threshold", "get_sscs_bilinear_threshold");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sscs_shadow_contrast", PROPERTY_HINT_RANGE, "1.0,16.0,0.1"), "set_sscs_shadow_contrast", "get_sscs_shadow_contrast");

@@ -1317,11 +1317,9 @@ public:
 	PASS1(environment_set_ssr_roughness_quality, RSE::EnvironmentSSRRoughnessQuality)
 
 	// SSCS
-	PASS11(environment_set_sscs, RID, bool, RSE::EnvironmentSSCSSampleCount, float, float, float, bool, bool, int, float, float)
+	PASS9(environment_set_sscs, RID, bool, RSE::EnvironmentSSCSSampleCount, float, float, float, bool, float, float)
 
 	PASS1RC(bool, environment_get_sscs_enabled, RID)
-	PASS1RC(bool, environment_get_sscs_debug_enabled, RID)
-	PASS1RC(int, environment_get_sscs_debug_type, RID)
 	PASS1RC(RSE::EnvironmentSSCSSampleCount, environment_get_sscs_sample_count, RID)
 	PASS1RC(float, environment_get_sscs_bilinear_threshold, RID)
 	PASS1RC(float, environment_get_sscs_shadow_contrast, RID)

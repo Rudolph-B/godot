@@ -673,7 +673,7 @@ public:
 
 	virtual void environment_set_ssr_roughness_quality(RSE::EnvironmentSSRRoughnessQuality p_quality) = 0;
 
-	virtual void environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, bool p_debug_enabled, int p_debug_type, float p_depth_begin, float p_depth_end) = 0;
+	virtual void environment_set_sscs(RID p_env, bool p_enable, RSE::EnvironmentSSCSSampleCount p_quality, float p_bilinear_threshold, float p_shadow_contrast, float p_surface_thickness, bool p_ignore_edge_pixels, float p_depth_begin, float p_depth_end) = 0;
 
 	virtual void environment_set_ssao(RID p_env, bool p_enable, float p_radius, float p_intensity, float p_power, float p_detail, float p_horizon, float p_sharpness, float p_light_affect, float p_ao_channel_affect) = 0;
 
