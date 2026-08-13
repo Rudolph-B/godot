@@ -123,7 +123,7 @@
 			Enables screen-space contact shadows for this light. Only used when [member Environment.sscs_enabled] is enabled.
 		</member>
 		<member name="shadow_contact_shadows_blur" type="float" setter="set_param" getter="get_param" default="1.0">
-			Blurs this the contact shadows edge. [code]0.0[/code] produces sharp shadows; higher values increase the noise magnitude. Only used when [member shadow_contact_shadows_allow] is enabled.
+			Blurs the edges of the contact shadow. [code]0.0[/code] produces sharp shadows; higher values increase the noise magnitude. Only used when [member shadow_contact_shadows_allow] is enabled.
 		</member>
 		<member name="shadow_contact_shadows_opacity" type="float" setter="set_param" getter="get_param" default="1.0">
 			Changes the opacity of this light's screen-space contact shadows. A value of 1.0 uses the same opacity as [member shadow_opacity], a value of 0.5 would be 50% of the opacity of [member shadow_opacity]. Only used when [member shadow_contact_shadows_allow] is enabled.
@@ -207,16 +207,13 @@
 		<constant name="PARAM_INTENSITY" value="20" enum="Param">
 			Constant for accessing [member light_intensity_lumens] and [member light_intensity_lux]. Only used when [member ProjectSettings.rendering/lights_and_shadows/use_physical_light_units] is [code]true[/code].
 		</constant>
-		<constant name="PARAM_CONTACT_SHADOW_ALLOW" value="21" enum="Param">
-			Constant for accessing [member shadow_contact_shadows_allow].
-		</constant>
-		<constant name="PARAM_CONTACT_SHADOW_OPACITY" value="22" enum="Param">
+		<constant name="PARAM_CONTACT_SHADOW_OPACITY" value="21" enum="Param">
 			Constant for accessing [member shadow_contact_shadows_opacity].
 		</constant>
-		<constant name="PARAM_CONTACT_SHADOW_BLUR" value="23" enum="Param">
+		<constant name="PARAM_CONTACT_SHADOW_BLUR" value="22" enum="Param">
 			Constant for accessing [member shadow_contact_shadows_blur].
 		</constant>
-		<constant name="PARAM_MAX" value="24" enum="Param">
+		<constant name="PARAM_MAX" value="23" enum="Param">
 			Represents the size of the [enum Param] enum.
 		</constant>
 		<constant name="BAKE_DISABLED" value="0" enum="BakeMode">

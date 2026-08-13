@@ -1537,7 +1537,7 @@ void RenderForwardClustered::_process_sscs(Ref<RenderSceneBuffersRD> p_render_bu
 	for (uint32_t i = 0; i < p_contact_shadows.size(); i++) {
 		RID light_instance = p_render_shadows[p_contact_shadows[i]].light;
 		RID base = light_storage->light_instance_get_base_light(light_instance);
-		if (light_storage->light_get_param(base, RSE::LIGHT_PARAM_CONTACT_SHADOW_ALLOW) <= 0.0) {
+		if (!light_storage->light_get_allow_contact_shadows(base)) {
 			continue;
 		}
 
@@ -1599,7 +1599,7 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 
 				if (rb_data.is_valid() && ss_effects) {
 					// Add contact shadows to be processed
-					if (p_render_data->render_shadows[i].pass == 0 && light_storage->light_get_param(base, RSE::LIGHT_PARAM_CONTACT_SHADOW_ALLOW) > 0.0) {
+					if (p_render_data->render_shadows[i].pass == 0 && light_storage->light_get_allow_contact_shadows(base)) {
 						// Contact shadows only need one pass
 						p_render_data->contact_shadows.push_back(i);
 					}

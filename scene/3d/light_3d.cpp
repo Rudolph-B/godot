@@ -160,11 +160,12 @@ uint32_t Light3D::get_shadow_caster_mask() const {
 }
 
 void Light3D::set_allow_contact_shadows(bool p_enable) {
-	set_param(PARAM_CONTACT_SHADOW_ALLOW, p_enable ? 1.0 : 0.0);
+	allow_contact_shadows = p_enable;
+	RS::get_singleton()->light_set_allow_contact_shadows(light, p_enable);
 }
 
 bool Light3D::get_allow_contact_shadows() const {
-	return get_param(PARAM_CONTACT_SHADOW_ALLOW) > 0.0;
+	return allow_contact_shadows;
 }
 
 AABB Light3D::get_aabb() const {
@@ -472,7 +473,6 @@ void Light3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(PARAM_SHADOW_BLUR);
 	BIND_ENUM_CONSTANT(PARAM_TRANSMITTANCE_BIAS);
 	BIND_ENUM_CONSTANT(PARAM_INTENSITY);
-	BIND_ENUM_CONSTANT(PARAM_CONTACT_SHADOW_ALLOW);
 	BIND_ENUM_CONSTANT(PARAM_CONTACT_SHADOW_OPACITY);
 	BIND_ENUM_CONSTANT(PARAM_CONTACT_SHADOW_BLUR);
 	BIND_ENUM_CONSTANT(PARAM_MAX);
@@ -529,7 +529,6 @@ Light3D::Light3D(RSE::LightType p_type) {
 	set_param(PARAM_SHADOW_NORMAL_BIAS, 1.0);
 	set_param(PARAM_TRANSMITTANCE_BIAS, 0.05);
 	set_param(PARAM_SHADOW_FADE_START, 1);
-	set_allow_contact_shadows(true);
 	set_param(PARAM_CONTACT_SHADOW_OPACITY, 1.0);
 	set_param(PARAM_CONTACT_SHADOW_BLUR, 1.0);
 	// For OmniLight3D and SpotLight3D, specified in Lumens.
