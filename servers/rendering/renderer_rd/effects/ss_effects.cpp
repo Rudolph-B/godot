@@ -1763,8 +1763,7 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 }
 
 /* Screen Space Shadows */
-
-void SSEffects::sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const RD::DataFormat p_color_format, uint32_t p_contact_shadow_count) {
+void SSEffects::sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, uint32_t p_contact_shadow_count) {
 	if (p_sscs_buffers.light_count != p_contact_shadow_count) {
 		p_render_buffers->clear_context(RB_SCOPE_SSCS);
 	}
@@ -1792,7 +1791,7 @@ void SSEffects::sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	}
 }
 
-void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const SSCSSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, float p_opacity, float p_blur, RendererRD::CopyEffects &p_copy_effects) {
+void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, const SSCSSettings &p_settings, const Projection *p_projections, Vector3 p_light_direction, uint32_t p_light_index, float p_opacity, float p_blur, float p_taa_frame_count) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
@@ -1867,6 +1866,7 @@ void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_
 		push_constant.depth_end = depth_end;
 		push_constant.opacity = p_opacity;
 		push_constant.blur = p_blur;
+		push_constant.taa_frame_count = p_taa_frame_count;
 		push_constant.light_coordinates[0] = light.x;
 		push_constant.light_coordinates[1] = light.y;
 		push_constant.light_coordinates[2] = light.z;

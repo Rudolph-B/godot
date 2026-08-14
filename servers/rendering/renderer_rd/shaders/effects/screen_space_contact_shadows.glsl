@@ -21,6 +21,7 @@ layout(push_constant, std430) uniform Params {
 	float depth_end;
 	float opacity;
 	float blur;
+	float taa_frame_count;
 }
 params;
 
@@ -210,7 +211,7 @@ void main() {
 		start_depth = (start_depth - light.z * sample_distance[0]) * depth_scale - Z_SIGN;
 	}
 
-	start_depth += params.blur * interleaved_gradient_noise(vec2(write_xy));
+	start_depth += params.blur * interleaved_gradient_noise(vec2(write_xy) + vec2(params.taa_frame_count * 5.588238));
 
 	int sample_index = thread_id + 1;
 	vec4 shadow_value = vec4(1.0);
