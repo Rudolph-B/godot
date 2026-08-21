@@ -170,13 +170,8 @@ public:
 	};
 
 	struct SSCSSettings {
-		RSE::EnvironmentSSCSSampleCount quality = RSE::ENV_SSCS_SAMPLE_COUNT_127;
-		float bilinear_threshold = 0.02f;
-		float shadow_contrast = 2.0f;
+		RSE::ScreenSpaceContactShadowsLength quality = RSE::SCREEN_SPACE_CONTACT_SHADOWS_LENGTH_SHORT;
 		float surface_thickness = 0.01f;
-		bool ignore_edge_pixels = false;
-		float depth_begin = 0.0f;
-		float depth_end = 1.0f;
 	};
 
 	void sscs_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSCSRenderBuffers &p_sscs_buffers, uint32_t p_contact_shadow_count);
@@ -541,12 +536,7 @@ private:
 		int32_t screen_size[2];
 		int32_t light_offset[2];
 		float light_coordinates[4];
-		float bilinear_threshold;
-		float shadow_contrast;
 		float surface_thickness;
-		uint32_t ignore_edge_pixels;
-		float depth_begin;
-		float depth_end;
 		float opacity;
 		float blur;
 		float taa_frame_count;

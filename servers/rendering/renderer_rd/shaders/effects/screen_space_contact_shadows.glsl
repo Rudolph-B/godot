@@ -13,12 +13,7 @@ layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
 	ivec2 light_offset;
 	vec4 light_coordinate;
-	float bilinear_threshold;
-	float shadow_contrast;
 	float surface_thickness;
-	int ignore_edge_pixels;
-	float depth_begin;
-	float depth_end;
 	float opacity;
 	float blur;
 	float taa_frame_count;
@@ -37,6 +32,8 @@ params;
 #define DEPTH_NEAR 1.0
 #define DEPTH_FAR 0.0
 #define Z_SIGN -1.0
+
+#define BILINEAR_THRESHOLD 0.02
 
 shared float DepthData[READ_COUNT * WAVE_SIZE];
 
@@ -135,7 +132,6 @@ void main() {
 	bool is_edge = false;
 	ivec2 write_xy = ivec2(pixel_pos);
 	const float edge_skip = 1e20;
-	const bool ignore_edge_pixels = params.ignore_edge_pixels > 0;
 	for (int i = 0; i < READ_COUNT; i++) {
 		vec2 read_xy = floor(pixel_pos);
 		float minor_axis = x_major_axis ? pixel_pos.y : pixel_pos.x;
@@ -151,7 +147,7 @@ void main() {
 		depths.y = textureLod(depth_buffer, uv_neighbor, 0.0).x;
 
 		depth_thickness_scale[i] = abs(DEPTH_FAR - depths.x);
-		bool use_point_filter = abs(depths.x - depths.y) > depth_thickness_scale[i] * params.bilinear_threshold;
+		bool use_point_filter = abs(depths.x - depths.y) > depth_thickness_scale[i] * BILINEAR_THRESHOLD;
 		if (i == 0) {
 			is_edge = use_point_filter;
 		}
@@ -159,7 +155,7 @@ void main() {
 		// The pixel starts sampling at this depth
 		sampling_depth[i] = depths.x;
 
-		float edge_depth = ignore_edge_pixels ? edge_skip : depths.x;
+		float edge_depth = depths.x;
 		// Any sample in this wavefront is possibly interpolated towards the bilinear sample
 		// So use should use a shadowing depth that is further away, based on the difference between the two samples
 		float shadow_depth = depths.x + abs(depths.x - depths.y) * Z_SIGN;
@@ -188,15 +184,10 @@ void main() {
 	memoryBarrierShared();
 	barrier();
 
-	// Check if pixel is within depth bounds (fade for smooth transition)
-	float near_fade_start = params.depth_begin * 1.05;
-	float far_fade_start = params.depth_end - params.depth_end * 0.05 - 0.0001;
-	if (sampling_depth[0] <= DEPTH_FAR || sampling_depth[0] <= far_fade_start || sampling_depth[0] >= near_fade_start) {
+	// Check if a pixel is beyond the far plane (can't be shaded)
+	if (sampling_depth[0] <= DEPTH_FAR) {
 		return;
 	}
-	float near_fade = 1.0 - smoothstep(params.depth_begin, near_fade_start, sampling_depth[0]);
-	float far_fade = smoothstep(far_fade_start, params.depth_end, sampling_depth[0]);
-	float depth_fade = near_fade * far_fade;
 
 	float depth_scale;
 	float start_depth = sampling_depth[0];
@@ -235,13 +226,12 @@ void main() {
 		shadow_value[i & 3] = min(shadow_value[i & 3], depth_delta + fade_out);
 	}
 
-	// Apply contrast boost
-	shadow_value = clamp(shadow_value * params.shadow_contrast + (1.0 - params.shadow_contrast), 0.0, 1.0);
-	hard_shadow = clamp(hard_shadow * params.shadow_contrast + (1.0 - params.shadow_contrast), 0.0, 1.0);
+	// Increase base shadow contrast
+	shadow_value = clamp(shadow_value * 2.0 - 1, 0.0, 1.0);
+	hard_shadow = clamp(hard_shadow * 2.0 - 1, 0.0, 1.0);
 
 	// Average the 4 buckets, then take the harder of hard_shadow and averaged result
 	float shadow = min(hard_shadow, dot(shadow_value, vec4(0.25)));
-	shadow = mix(1.0, shadow, depth_fade);
 	shadow = mix(1.0, shadow, params.opacity);
 	imageStore(output_shadow, write_xy, vec4(shadow, 0.0, 0.0, 0.0));
 }

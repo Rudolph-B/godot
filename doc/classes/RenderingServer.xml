@@ -2173,7 +2173,7 @@
 			<param index="0" name="light" type="RID" />
 			<param index="1" name="enable" type="bool" />
 			<description>
-				If [code]true[/code], allows screen-space contact shadows for this light. Only used when [member Environment.sscs_enabled] is enabled. Equivalent to [member Light3D.shadow_contact_shadows_allow].
+				If [code]true[/code], allows screen-space contact shadows for this light. Only used when [member ProjectSettings.rendering/lights_and_shadows/contact_shadow/enabled] is enabled. Equivalent to [member Light3D.shadow_contact_shadows_allow].
 			</description>
 		</method>
 		<method name="light_set_bake_mode">

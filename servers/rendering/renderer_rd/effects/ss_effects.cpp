@@ -1846,24 +1846,13 @@ void SSEffects::screen_space_contact_shadows(Ref<RenderSceneBuffersRD> p_render_
 
 		Size2i bound_size = bound_end - bound_start;
 
-		// Convert linear depth bounds to reverse-Z
-		float z_near = p_projections[v].get_z_near();
-		float z_far = p_projections[v].get_z_far();
-		float depth_begin = projection.xform(Vector3(0, 0, -z_near - p_settings.depth_begin * (z_far - z_near))).z;
-		float depth_end = projection.xform(Vector3(0, 0, -z_near - p_settings.depth_end * (z_far - z_near))).z;
-
 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, sscs.sscs_pipelines[p_settings.quality].get_rid());
 
 		ScreenSpaceContactShadowsPushConstant push_constant;
 		push_constant.screen_size[0] = p_sscs_buffers.size.width;
 		push_constant.screen_size[1] = p_sscs_buffers.size.height;
-		push_constant.bilinear_threshold = p_settings.bilinear_threshold;
-		push_constant.shadow_contrast = p_settings.shadow_contrast;
 		push_constant.surface_thickness = p_settings.surface_thickness;
-		push_constant.ignore_edge_pixels = p_settings.ignore_edge_pixels ? 1 : 0;
-		push_constant.depth_begin = depth_begin;
-		push_constant.depth_end = depth_end;
 		push_constant.opacity = p_opacity;
 		push_constant.blur = p_blur;
 		push_constant.taa_frame_count = p_taa_frame_count;
