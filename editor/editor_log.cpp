@@ -281,6 +281,10 @@ void EditorLog::_process_message(const String &p_msg, MessageType p_type, bool p
 	}
 
 	type_filter_map[p_type]->set_message_count(type_filter_map[p_type]->get_message_count() + 1);
+
+	if (log->get_paragraph_count() > line_limit * 2) {
+		_rebuild_log();
+	}
 }
 
 void EditorLog::add_message(const String &p_msg, MessageType p_type) {
@@ -465,10 +469,6 @@ void EditorLog::_add_log_line(LogMessage &p_message, bool p_replace_previous) {
 		if (log->get_pending_paragraphs() < 100) {
 			log->wait_until_finished();
 		}
-	}
-
-	while (log->get_paragraph_count() > line_limit + 1) {
-		log->remove_paragraph(0, true);
 	}
 }
 

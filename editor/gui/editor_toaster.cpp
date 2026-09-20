@@ -456,8 +456,20 @@ void EditorToaster::_popup_str(const String &p_message, Severity p_severity, con
 	is_processing_error = true;
 	// Check if we already have a popup with the given message.
 	Control *control = nullptr;
+	// Limit the message to a maximum number of lines.
+	String message = p_message;
+	int newline_pos = -1;
+	for (int i = 0; i < 30; i++) {
+		newline_pos = message.find_char('\n', newline_pos + 1);
+		if (newline_pos == -1) {
+			break;
+		}
+	}
+	if (newline_pos != -1) {
+		message = message.substr(0, newline_pos);
+	}
 	for (KeyValue<Control *, Toast> element : toasts) {
-		if (element.value.message == p_message && element.value.severity == p_severity && element.value.tooltip == p_tooltip) {
+		if (element.value.message == message && element.value.severity == p_severity && element.value.tooltip == p_tooltip) {
 			control = element.key;
 			break;
 		}
@@ -480,7 +492,7 @@ void EditorToaster::_popup_str(const String &p_message, Severity p_severity, con
 		control = popup(hb, p_severity, default_message_duration, p_tooltip);
 
 		Toast &toast = toasts[control];
-		toast.message = p_message;
+		toast.message = message;
 		toast.tooltip = p_tooltip;
 		toast.count = 1;
 		toast.message_label = label;
@@ -505,7 +517,7 @@ void EditorToaster::_popup_str(const String &p_message, Severity p_severity, con
 	// Retrieve the label back, then update the text.
 	Label *message_label = toasts[control].message_label;
 	ERR_FAIL_NULL(message_label);
-	message_label->set_text(p_message);
+	message_label->set_text(message);
 	message_label->set_text_overrun_behavior(TextServer::OVERRUN_NO_TRIMMING);
 	message_label->set_custom_minimum_size(Size2());
 
